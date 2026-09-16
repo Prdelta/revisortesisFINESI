@@ -17,11 +17,12 @@ from docx.text.paragraph import Paragraph
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from rapidfuzz import fuzz
-import localizador
-import reglas_revisor
-from reporte_resumen import escribir_resumen, redactar
-from reporte_word import escribir_word
+from utilidades import localizador
+from utilidades import reglas_revisor
+from reportes.reporte_resumen import escribir_resumen, redactar
+from reportes.reporte_word import escribir_word
 from .utils import *
+from .config import DATOS, RECURSOS
 
 APELLIDO = r"[A-ZÁÉÍÓÚÑÜ][A-Za-zÁÉÍÓÚÑÜáéíóúñü'\-]+"
 PARTICULA = r"(?:(?:de|del|la|las|los|van|von|da|di|le|mc)\s+)*"

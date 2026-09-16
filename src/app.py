@@ -15,8 +15,14 @@ import ttkbootstrap as tb
 from tkinter import filedialog, messagebox, ttk
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import core
+import utilidades
+import reportes
 
-import revisor  # noqa: E402
+import core.orquestador as orquestador
+from core.config import DATOS, RECURSOS, tipos_disponibles, ruta_recurso
+from utilidades import reglas_revisor
+from core.orquestador import revisar, preparar_datos, Opciones  # noqa: E402
 
 FONDO = "#222222"
 PANEL = "#303030"
@@ -34,7 +40,7 @@ MONO = "Consolas" if sys.platform.startswith("win") else "monospace"
 class App(tb.Window):
     def __init__(self):
         super().__init__(themename="darkly")
-        revisor.preparar_datos()
+        preparar_datos()
         self.title("Revisor de Tesis  ·  FINESI")
         self.configure(bg=FONDO)
         self.geometry("1020x790")
@@ -51,7 +57,7 @@ class App(tb.Window):
 
     # ---------------------------------------------------------------- preferencias
     def _ruta_config(self):
-        return os.path.join(revisor.DATOS, "config.json")
+        return os.path.join(DATOS, "config.json")
 
     def _leer_config(self):
         try:
@@ -80,7 +86,7 @@ class App(tb.Window):
 
     def _icono(self):
         for nombre in ("icono.ico", "icono.png"):
-            ruta = revisor.ruta_recurso(nombre)
+            ruta = ruta_recurso(nombre)
             if not os.path.exists(ruta):
                 continue
             try:
@@ -211,7 +217,7 @@ class App(tb.Window):
 
     def _panel_derecho(self, padre):
         ttk.Label(padre, text="TIPO DE DOCUMENTO", style="Seccion.TLabel").pack(anchor="w")
-        self.tipos = revisor.tipos_disponibles() or [("proyecto", False)]
+        self.tipos = tipos_disponibles() or [("proyecto", False)]
         nombres = [t for t, _ in self.tipos]
         guardado = self.cfg.get("tipo")
         self.tipo = tk.StringVar(value=guardado if guardado in nombres else
@@ -275,7 +281,7 @@ class App(tb.Window):
         ttk.Label(padre, text="CARPETA DE REPORTES", style="Seccion.TLabel").pack(anchor="w", pady=(16, 6))
         f = ttk.Frame(padre)
         f.pack(fill="x")
-        self.salida = tk.StringVar(value=self.cfg.get("salida") or os.path.join(revisor.DATOS, "reportes"))
+        self.salida = tk.StringVar(value=self.cfg.get("salida") or os.path.join(DATOS, "reportes"))
         ttk.Entry(f, textvariable=self.salida, font=(FUENTE, 9)).pack(side="left", fill="x", expand=True, ipady=3)
         ttk.Button(f, text="Cambiar", command=self.elegir_salida).pack(side="left", padx=(6, 0))
         self.cambio_tipo()
@@ -291,14 +297,14 @@ class App(tb.Window):
         self.estado.pack(side="left")
         self.boton = ttk.Button(barra, text="Revisar", style="Primario.TButton", command=self.revisar)
         self.boton.pack(side="right")
-        ttk.Button(barra, text="Carpeta de datos", command=lambda: self.abrir_carpeta(revisor.DATOS)).pack(
+        ttk.Button(barra, text="Carpeta de datos", command=lambda: self.abrir_carpeta(DATOS)).pack(
             side="right", padx=10)
 
     # ---------------------------------------------------------------- acciones
     def cambio_tipo(self):
         tipo = self.tipo.get()
         try:
-            reglas = revisor.cargar_reglas(tipo)
+            reglas = reglas_revisor.cargar_reglas(tipo)
         except Exception as ex:
             self.aviso_tipo.configure(text=str(ex).split("\n")[0] +
                                       f"  Genera las reglas desde la plantilla oficial (ver LEEME).",
@@ -375,15 +381,15 @@ class App(tb.Window):
             messagebox.showerror("Revisor de Tesis", f"No se pudo abrir el archivo:\n{ruta}\n\n{ex}")
 
     def editar_mis_reglas(self):
-        import reglas_revisor
-        ruta = reglas_revisor.crear_si_falta(os.path.join(revisor.DATOS, "mis_reglas.yaml"))
+        from utilidades import reglas_revisor
+        ruta = reglas_revisor.crear_si_falta(os.path.join(DATOS, "mis_reglas.yaml"))
         self._abrir_archivo(ruta)
         self.escribir("Se abrió mis_reglas.yaml. Guarda el archivo y vuelve a revisar; "
                       "los cambios se aplican de inmediato.", "suave")
 
     def editar_permitidas(self):
-        ruta = revisor.ruta_recurso("permitidas.txt")
-        destino = os.path.join(revisor.DATOS, "permitidas.txt")
+        ruta = ruta_recurso("permitidas.txt")
+        destino = os.path.join(DATOS, "permitidas.txt")
         if ruta != destino and not os.path.exists(destino):
             try:
                 shutil.copy2(ruta, destino)
@@ -424,11 +430,11 @@ class App(tb.Window):
             messagebox.showinfo("Revisor de Tesis", "Agrega al menos un documento .docx.")
             return
         try:
-            reglas = revisor.cargar_reglas(self.tipo.get())
+            reglas = reglas_revisor.cargar_reglas(self.tipo.get())
         except Exception as ex:
             messagebox.showerror("Revisor de Tesis", str(ex))
             return
-        salida = self.salida.get().strip() or os.path.join(revisor.DATOS, "reportes")
+        salida = self.salida.get().strip() or os.path.join(DATOS, "reportes")
         try:
             os.makedirs(salida, exist_ok=True)
         except Exception as ex:
@@ -436,7 +442,7 @@ class App(tb.Window):
             return
 
         uno = len(self.archivos) == 1
-        opciones = revisor.Opciones(
+        opciones = Opciones(
             tipo=self.tipo.get(), salida=salida, excel=self.excel.get(),
             revisor=self.campos["revisor"][0].get().strip(),
             tesista=self.campos["tesista"][0].get().strip() if uno else "",
@@ -462,14 +468,14 @@ class App(tb.Window):
                          daemon=True).start()
 
     def _trabajar(self, archivos, reglas, opciones, salida):
-        registro = revisor.leer_registro(opciones.registro)
+        registro = orquestador.leer_registro(opciones.registro)
         hechos = 0
         for ruta in archivos:
             nombre = os.path.basename(ruta)
             self.cola.put(("estado", f"Revisando {nombre}…"))
             try:
                 mensajes = []
-                res = revisor.revisar(ruta, reglas, salida, registro, opciones,
+                res = revisar(ruta, reglas, salida, registro, opciones,
                                       opciones.forzar, mensajes.append)
                 if res is None:
                     self.cola.put(("log", (f"{nombre}: no parece un {reglas['tipo']}. No se generó reporte.", "err")))

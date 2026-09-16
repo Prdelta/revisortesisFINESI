@@ -17,11 +17,17 @@ from docx.text.paragraph import Paragraph
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from rapidfuzz import fuzz
-import localizador
-import reglas_revisor
-from reporte_resumen import escribir_resumen, redactar
-from reporte_word import escribir_word
+from utilidades import localizador
+from utilidades import reglas_revisor
+from reportes.reporte_resumen import escribir_resumen, redactar
+from reportes.reporte_word import escribir_word
 from .utils import *
+from .config import DATOS, RECURSOS, tipos_disponibles, ruta_recurso, preparar_datos
+from .estructura import *
+from .formato import *
+from .citas import *
+from .ortografia import *
+from .extension import *
 
 def ubicar_lineas(obs, filas_orto, mapa, bloques, rangos):
     """agrega a cada observacion la pagina y linea donde esta el texto"""

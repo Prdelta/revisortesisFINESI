@@ -17,11 +17,13 @@ from docx.text.paragraph import Paragraph
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from rapidfuzz import fuzz
-import localizador
-import reglas_revisor
-from reporte_resumen import escribir_resumen, redactar
-from reporte_word import escribir_word
+from utilidades import localizador
+from utilidades import reglas_revisor
+from reportes.reporte_resumen import escribir_resumen, redactar
+from reportes.reporte_word import escribir_word
 from .utils import *
+from .estructura import detectar_secciones
+from .config import DATOS, RECURSOS
 
 def revisar_formato(doc, bloques, rangos, reglas, obs):
     f = reglas.get("formato") or {}

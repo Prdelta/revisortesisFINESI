@@ -1,0 +1,7 @@
+python-docx
+openpyxl
+pyyaml
+rapidfuzz
+spylls
+pypdf
+language_tool_python

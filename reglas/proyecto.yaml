@@ -1,0 +1,70 @@
+# Reglas de revision del PROYECTO DE TESIS FINESI (no usar para borradores)
+tipo: proyecto
+
+# Los valores de formato se tomaron de la plantilla oficial.
+# CONFIRMAR con el reglamento si son obligatorios o solo como vino la plantilla.
+
+plantilla: plantillas/proyecto.docx   # de aqui se extraen las marcas guia que el tesista debe borrar
+
+formato:
+  papel: {ancho_cm: 21.0, alto_cm: 29.7}          # A4
+  margenes_cm: {izquierdo: 3.0, derecho: 2.0, superior: 2.5, inferior: 2.0}
+  tolerancia_margen_cm: 0.1
+  fuente: Arial
+  tamano_pt: 10
+  interlineado: 1.0
+  alineacion_cuerpo: justificado
+  tolerancia_fuera_de_norma: 0.03   # si menos del 3% del texto esta en otra fuente, se reporta como advertencia
+  encabezado_debe_contener:
+    - Universidad Nacional del Altiplano
+    - Ingeniería Estadística e Informática
+
+extension:
+  max_paginas: 15
+  seccion_titulo: "Título"
+  seccion_palabras_clave: "Palabras claves"
+  titulo_max_palabras: 25
+  palabras_clave_max: 5
+
+# Esquema en orden. 'alias' son otras formas en que los tesistas titulan la seccion.
+# Se escriben en minuscula y sin tildes. Agrega los que vayas viendo en la practica:
+# cada alias evita un falso 'falta la seccion' y que se salte la revision de esa parte.
+secciones:
+  - {nombre: "Título", alias: ["titulo del proyecto", "titulo de la tesis", "titulo de la investigacion"]}
+  - {nombre: "Resumen del proyecto de tesis", alias: ["resumen", "resumen del proyecto", "resumen ejecutivo"]}
+  - {nombre: "Palabras claves", alias: ["palabras clave", "keywords", "palabras claves keywords", "palabras clave keywords"]}
+  - {nombre: "Justificación del proyecto", alias: ["justificacion", "justificacion de la investigacion", "justificacion del estudio", "justificacion e importancia"]}
+  - {nombre: "Antecedentes del proyecto", alias: ["antecedentes", "antecedentes de la investigacion", "antecedentes del estudio", "estado del arte", "marco teorico"]}
+  - {nombre: "Hipótesis del trabajo", alias: ["hipotesis", "hipotesis de la investigacion", "hipotesis de trabajo"]}
+  - {nombre: "Objetivo general", alias: ["objetivo principal"]}
+  - {nombre: "Objetivos específicos", alias: ["objetivo especifico", "objetivos secundarios"]}
+  - {nombre: "Metodología de investigación", alias: ["metodologia", "metodologia de la investigacion", "materiales y metodos", "metodos y materiales", "diseno metodologico"]}
+  - {nombre: "Referencias", alias: ["referencias bibliograficas", "bibliografia", "referencias biblio", "fuentes consultadas", "fuentes de informacion", "literatura citada"]}
+  - {nombre: "Uso de los resultados y contribuciones del proyecto", alias: ["uso de los resultados", "uso de resultados y contribuciones", "contribuciones del proyecto", "utilidad de los resultados"]}
+  - {nombre: "Impactos esperados", alias: ["resultados esperados", "impacto esperado", "impactos del proyecto"]}
+  - {nombre: "Recursos necesarios", alias: ["recursos", "recursos del proyecto", "recursos humanos y materiales"]}
+  - {nombre: "Localización del proyecto", alias: ["localizacion", "ubicacion del proyecto", "ambito de estudio", "lugar de ejecucion", "area de estudio"]}
+  - {nombre: "Cronograma de actividades", alias: ["cronograma", "cronograma de ejecucion", "plan de actividades"]}
+  - {nombre: "Presupuesto", alias: ["presupuesto del proyecto", "financiamiento", "presupuesto y financiamiento"]}
+
+subsecciones:
+  "Impactos esperados":
+    - "Impactos en ciencia y tecnología"
+    - "Impactos económicos"
+    - "Impactos sociales"
+    - "Impactos ambientales"
+
+# Si aparecen estos titulos, el documento probablemente NO es un proyecto (es un borrador)
+secciones_de_otro_tipo: ["resultados", "discusion", "conclusiones", "recomendaciones", "resultados y discusion", "anexos"]
+
+secciones_con_tabla: ["Cronograma de actividades", "Presupuesto"]
+
+citas:
+  estilo: APA7          # la plantilla dice "estilo adecuado a su especialidad": CONFIRMAR cual exige la direccion
+  seccion_referencias: "Referencias"
+
+ortografia:
+  motor: auto           # auto = LanguageTool si esta instalado y responde (ortografia + gramatica), si no, diccionario hunspell es_PE
+  palabras_permitidas: permitidas.txt
+  diccionario: dic/es_PE
+  omitir_secciones: ["Referencias", "Cronograma de actividades", "Presupuesto"]

@@ -1,0 +1,37 @@
+# Reglas propias del revisor
+#
+# Se aplican además de las que ya trae el programa. Para agregar una, copia un bloque y edítalo.
+# No hace falta reconstruir el ejecutable: los cambios valen en la siguiente revisión.
+#
+# Campos:
+#   observacion      texto que sale en la hoja de revisión (obligatorio)
+#   donde            "documento" o el nombre exacto de una sección del esquema
+#   si_aparece       lista de textos; si alguno aparece, se observa
+#   si_no_aparece    lista de textos; si NINGUNO aparece, se observa
+#   minimo_citas     número mínimo de citas (autor, año) en esa sección
+#   minimo_palabras  número mínimo de palabras en esa sección
+#   severidad        Error, Advertencia o Revisar
+#   activa           false para desactivarla sin borrarla
+
+reglas:
+  - observacion: "En anexos, incluir matriz de consistencia"
+    donde: documento
+    si_no_aparece: ["matriz de consistencia"]
+    severidad: Error
+
+  - observacion: "Incrementar número de citas (antecedentes)"
+    donde: "Antecedentes del proyecto"
+    minimo_citas: 5
+    severidad: Error
+
+  - observacion: "Redactar en tercera persona o impersonal"
+    donde: documento
+    si_aparece: ["\\brealizare\\b", "\\bhice\\b", "\\bmi tesis\\b", "\\byo \\b", "\\bnuestro trabajo\\b"]
+    severidad: Advertencia
+    activa: false
+
+  - observacion: "Los objetivos deben empezar con verbo en infinitivo"
+    donde: "Objetivo general"
+    si_no_aparece: ["ar ", "er ", "ir "]
+    severidad: Revisar
+    activa: false

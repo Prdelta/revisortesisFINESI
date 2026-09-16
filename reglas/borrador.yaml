@@ -1,0 +1,69 @@
+# Reglas de revision: BORRADOR (generado automaticamente desde borrador.docx)
+# REVISAR TODO contra el reglamento antes de usar. Los valores salen de como esta hecha la plantilla,
+# no de una norma escrita. Borra o corrige lo que no corresponda.
+tipo: borrador
+
+plantilla: plantillas/borrador.docx
+
+formato:
+  papel: {ancho_cm: 21.0, alto_cm: 29.7}
+  margenes_cm: {izquierdo: 3.0, derecho: 2.0, superior: 2.5, inferior: 2.0}
+  tolerancia_margen_cm: 0.1
+  fuente: Arial
+  tamano_pt: 10
+  interlineado: 1.0
+  alineacion_cuerpo: justificado
+  tolerancia_fuera_de_norma: 0.03
+  encabezado_debe_contener:
+    - "Universidad Nacional del Altiplano"
+    - "Facultad de Ingeniería Estadística e Informática"
+    - "Escuela Profesional de Ingeniería Estadística e Informática"
+
+extension:
+  max_paginas: null            # COMPLETAR si el reglamento pone limite (null = no se revisa)
+  seccion_titulo: null         # nombre de la seccion que contiene el titulo, si hay limite de palabras
+  titulo_max_palabras: null
+  seccion_palabras_clave: "Palabras claves"
+  palabras_clave_max: null
+
+# Esquema en orden. En 'alias' van otras formas validas de titular la seccion.
+# Los alias vienen propuestos; agrega los que veas en la practica y borra los que no apliquen.
+secciones:
+  - {nombre: "Título", alias: []}
+  - {nombre: "Resumen del Proyecto de Tesis", alias: ["resumen", "sumario"]}
+  - {nombre: "Palabras claves", alias: ["palabras clave", "keywords"]}
+  - {nombre: "Justificación del proyecto", alias: ["justificacion", "justificacion de la investigacion", "justificacion del estudio"]}
+  - {nombre: "Antecedentes del proyecto", alias: ["antecedentes", "antecedentes de la investigacion", "estado del arte"]}
+  - {nombre: "Hipótesis del trabajo", alias: ["hipotesis", "hipotesis de la investigacion", "hipotesis de trabajo"]}
+  - {nombre: "Objetivo general", alias: ["objetivo principal"]}
+  - {nombre: "Objetivos específicos", alias: ["objetivo especifico"]}
+  - {nombre: "Metodología de investigación", alias: ["metodologia", "metodologia de la investigacion", "materiales y metodos", "metodos y materiales"]}
+  - {nombre: "Referencias", alias: ["referencias bibliograficas", "bibliografia", "fuentes consultadas", "fuentes de informacion"]}
+  - {nombre: "Uso de los resultados y contribuciones del proyecto", alias: ["resultados", "resultados y discusion"]}
+  - {nombre: "Impactos esperados", alias: ["resultados esperados"]}
+  - {nombre: "Recursos necesarios", alias: []}
+  - {nombre: "Localización del proyecto", alias: []}
+  - {nombre: "Cronograma de actividades", alias: ["cronograma"]}
+  - {nombre: "Presupuesto", alias: ["presupuesto del proyecto", "financiamiento"]}
+
+subsecciones:
+  "Impactos esperados":
+    - "Impactos en Ciencia y Tecnología"
+    - "Impactos económicos"
+    - "Impactos sociales"
+    - "Impactos ambientales"
+
+secciones_con_tabla: []        # COMPLETAR, ej. ["Cronograma de actividades"]
+
+# Si aparecen estos titulos, el documento probablemente es de otro tipo y no se revisa
+secciones_de_otro_tipo: ["presupuesto", "cronograma de actividades", "cronograma"]
+
+citas:
+  estilo: APA7                # CONFIRMAR con la direccion
+  seccion_referencias: "Referencias"
+
+ortografia:
+  motor: auto
+  palabras_permitidas: permitidas.txt
+  diccionario: dic/es_PE
+  omitir_secciones: ["Referencias"]

@@ -1,0 +1,30 @@
+# Archivos compilados y temporales de Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Entornos virtuales
+venv/
+env/
+.venv/
+
+# Archivos de PyInstaller (Compilación del ejecutable)
+build/
+dist/
+*.spec
+
+# Archivos temporales de la base de datos o registro (opcional, comentar si se quiere subir)
+# registro.csv
+
+# Logs y reportes generados por la app
+reportes/
+*.log
+
+# Archivos del IDE o SO
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Configuración local de la app
+config.json

@@ -5,6 +5,9 @@ Fachada (Facade) que redirige al motor modularizado para mantener compatibilidad
 
 from motor.orquestador import *
 from motor.utils import *
+from motor.orquestador import *
+from motor.utils import DATOS, tipos_disponibles
+from motor.utils import *
 from motor.estructura import *
 from motor.formato import *
 from motor.citas import *

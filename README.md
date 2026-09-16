@@ -23,7 +23,7 @@ El proyecto ha sido rediseñado utilizando **Clean Architecture** y el patrón *
 
 ---
 
-## 🚀 1. Crear el Ejecutable (Windows)
+## 1. Crear el Ejecutable (Windows)
 
 1. Instala **Python 3.10 o superior** desde python.org. Es **crucial** marcar la casilla **Add Python to PATH**.
 2. Haz doble clic en **`construir_exe.bat`**. Este script limpiará el entorno, instalará dependencias y compilará la aplicación.
@@ -37,7 +37,7 @@ Este `.exe` es completamente autónomo. Puedes copiarlo a cualquier PC con Windo
 
 ---
 
-## 💻 2. Uso del Programa
+## 2. Uso del Programa
 
 1. Abre el `.exe`.
 2. Haz clic en **Agregar archivos** o **Agregar carpeta** para cargar los `.docx`.
@@ -48,7 +48,7 @@ Este `.exe` es completamente autónomo. Puedes copiarlo a cualquier PC con Windo
 
 ---
 
-## 📑 3. Formato de los Reportes
+## 3. Formato de los Reportes
 
 Elige el formato de salida según tu necesidad:
 - **Hoja de revisión (corta):** Reproduce el formato oficial PGI. Da un resumen tipo "Línea 33 y otros: corregir formato APA".
@@ -58,7 +58,7 @@ Elige el formato de salida según tu necesidad:
 
 ---
 
-## ⚙️ 4. Reglas Propias (mis_reglas.yaml)
+## 4. Reglas Propias (mis_reglas.yaml)
 
 No necesitas programar para enseñarle cosas nuevas al sistema. Haz clic en **Editar reglas** en la app para abrir `data/mis_reglas.yaml` y agrega las tuyas:
 
@@ -76,7 +76,7 @@ reglas:
 
 ---
 
-## 🔍 5. ¿Qué revisa exactamente el Core?
+## 5. ¿Qué revisa exactamente el Core?
 
 - **Estructura**: Secciones obligatorias, orden correcto, secciones vacías.
 - **Plantilla**: Texto guía entre paréntesis `(...)` que el tesista olvidó borrar.
@@ -87,7 +87,7 @@ reglas:
 
 ---
 
-## ⌨️ 6. Uso por Línea de Comandos (CLI)
+## ⌨6. Uso por Línea de Comandos (CLI)
 
 Para usuarios avanzados, el orquestador funciona por terminal:
 
@@ -102,7 +102,7 @@ python -m core.orquestador --tipo proyecto "ejemplos/tesis.docx"
 python -m core.orquestador --tipo proyecto "ejemplos/" --revisor "Tu Nombre"
 ```
 
-## ⚠️ 7. Límites Conocidos
+##  7. Límites Conocidos
 - Solo lee `.docx`.
 - La línea exacta del error depende del mapeo interno con LibreOffice, puede tener un margen de error mínimo si el tesista desconfiguró los márgenes.
 - Detección de citas usa Expresiones Regulares (RegEx); apellidos muy inusuales compuestos podrían generar falsos positivos. Por ello, "referencia no citada" es una advertencia, no un error fatal.

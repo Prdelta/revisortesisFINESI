@@ -10,7 +10,7 @@ Aplicación de escritorio desarrollada para la Dirección de Investigación de F
 
 ---
 
-## 🏗 Arquitectura del Sistema
+## Arquitectura del Sistema
 
 El proyecto ha sido rediseñado utilizando **Clean Architecture** y el patrón **src/ layout** para garantizar escalabilidad y fácil mantenimiento:
 
@@ -87,7 +87,7 @@ reglas:
 
 ---
 
-## ⌨6. Uso por Línea de Comandos (CLI)
+## 6. Uso por Línea de Comandos (CLI)
 
 Para usuarios avanzados, el orquestador funciona por terminal:
 

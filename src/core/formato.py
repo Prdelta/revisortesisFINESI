@@ -1,31 +1,18 @@
-import argparse
-import os
+"""
+Formato del documento: tamaño de papel, márgenes, encabezado, fuente, tamaño de
+letra, interlineado y justificado, contra lo que fija el archivo de reglas.
+"""
 import re
-import shutil
-import subprocess
-import sys
-import tempfile
-import unicodedata
 from collections import Counter, defaultdict
-from datetime import datetime
-import yaml
-from docx import Document
-from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.oxml.ns import qn
-from docx.table import Table
-from docx.text.paragraph import Paragraph
-from openpyxl import Workbook
-from openpyxl.styles import Alignment, Font, PatternFill
-from rapidfuzz import fuzz
-from utilidades import localizador
-from utilidades import reglas_revisor
-from reportes.reporte_resumen import escribir_resumen, redactar
-from reportes.reporte_word import escribir_word
-from .utils import *
-from .estructura import detectar_secciones
-from .config import DATOS, RECURSOS
 
-def revisar_formato(doc, bloques, rangos, reglas, obs):
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.text.paragraph import Paragraph
+
+from .estructura import detectar_secciones
+from .utils import Estilos, juntar, norm, ubic
+
+
+def revisar_formato(doc, bloques, rangos, reglas, obs, deteccion=None):
     f = reglas.get("formato") or {}
     if not f:
         return
@@ -62,7 +49,10 @@ def revisar_formato(doc, bloques, rangos, reglas, obs):
                 for c in fila.cells:
                     for p in c.paragraphs:
                         parrafos.append((i, p))
-    titulos = {i for i, _ in detectar_secciones(bloques, reglas)[1]}
+    # la detección ya viene calculada desde el orquestador; recalcularla era
+    # repetir una pasada difusa O(párrafos × alias) sobre todo el documento
+    todos = (deteccion or detectar_secciones(bloques, reglas))[1]
+    titulos = {i for i, _ in todos}
     for i, p in parrafos:
         es_titulo = i in titulos or re.search(r"(heading|t[ií]tulo)\s*\d", (p.style.name or "").lower()) is not None
         for r in p.runs:

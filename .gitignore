@@ -9,16 +9,22 @@ env/
 .venv/
 
 # Archivos de PyInstaller (Compilación del ejecutable)
+# El .spec SÍ se versiona: es la receta de compilación, no un artefacto.
 build/
 dist/
-*.spec
 
 # Archivos temporales de la base de datos o registro (opcional, comentar si se quiere subir)
 # registro.csv
 
 # Logs y reportes generados por la app
-reportes/
+data/reportes/
 *.log
+
+# Cache de pytest
+.pytest_cache/
+
+# Corpus de calibracion: son tesis reales de estudiantes, no se versionan
+corpus/
 
 # Archivos del IDE o SO
 .vscode/

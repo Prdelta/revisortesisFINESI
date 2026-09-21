@@ -1,28 +1,15 @@
-import argparse
-import os
+"""
+Citas y referencias en APA 7: citas huérfanas, referencias no citadas, años que
+no coinciden, orden alfabético y sangría francesa.
+"""
 import re
-import shutil
-import subprocess
-import sys
-import tempfile
-import unicodedata
-from collections import Counter, defaultdict
-from datetime import datetime
-import yaml
-from docx import Document
-from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.oxml.ns import qn
-from docx.table import Table
+
 from docx.text.paragraph import Paragraph
-from openpyxl import Workbook
-from openpyxl.styles import Alignment, Font, PatternFill
 from rapidfuzz import fuzz
-from utilidades import localizador
-from utilidades import reglas_revisor
-from reportes.reporte_resumen import escribir_resumen, redactar
-from reportes.reporte_word import escribir_word
-from .utils import *
-from .config import DATOS, RECURSOS
+from rapidfuzz.distance import Levenshtein
+
+from .utils import corto, norm, ubic
+
 
 APELLIDO = r"[A-ZÁÉÍÓÚÑÜ][A-Za-zÁÉÍÓÚÑÜáéíóúñü'\-]+"
 PARTICULA = r"(?:(?:de|del|la|las|los|van|von|da|di|le|mc)\s+)*"
@@ -33,6 +20,64 @@ RE_PAREN = re.compile(r"\(([^()]*?(?:\d{4}[a-z]?|s\.\s?f\.)[^()]*)\)")
 RE_SIGLA = re.compile(r"\s*\[[^\]]+\]")   # (Ministerio de Salud [MINSA], 2020)
 RE_NARR = re.compile(rf"({AUTOR}(?:\s+et\s+al\.?|\s+(?:y|&)\s+{AUTOR})?)\s+\(({ANIO})(?:[,;][^)]*)?\)")
 RE_PARTE = re.compile(rf"^(?:(?:ver|véase|cf\.|p\.\s?ej\.)\s+)?(.+?),?\s+({ANIO})(?:[,:].*)?$", re.I)
+
+
+# APA 7 pide usar la sigla sola a partir de la segunda mención: "(MINSA, 2020)" debe
+# emparejar con la referencia "Ministerio de Salud. (2020)." Antes no lo hacía y salía
+# un falso "cita sin referencia" en toda tesis que citara una institución.
+MENORES = {"de", "del", "la", "las", "los", "el", "y", "e", "en", "para", "por"}
+UMBRAL_AUTOR = 88          # parecido mínimo para aceptar dos apellidos como el mismo
+SIGLA_MINIMA = 3
+
+
+def es_acronimo_de(sigla, nombre):
+    """
+    ¿'minsa' es la sigla de 'ministerio de salud'? Consume la sigla por trozos, cada uno
+    prefijo de una palabra significativa y en orden, permitiendo saltar palabras
+    (SUNAT = SUperintendencia NAcional de Administración Tributaria). Exige que la
+    primera palabra aporte, para no emparejar siglas que arrancan a mitad del nombre.
+    """
+    if len(sigla) < SIGLA_MINIMA or " " in sigla:
+        return False
+    todas = nombre.split()
+    if len(todas) < 2:
+        return False
+    # Se prueba sin las palabras menores y con ellas: algunas siglas las incorporan
+    # (CONCYTEC toma la 'y' de "Ciencia Y Tecnología").
+    for palabras in ([p for p in todas if p not in MENORES], todas):
+        if len(palabras) < 2:
+            continue
+        resto, aportes, primera = sigla, 0, True
+        for p in palabras:
+            if not resto:
+                break
+            k = 0
+            while k < len(resto) and k < len(p) and resto[k] == p[k]:
+                k += 1
+            if k:
+                resto, aportes = resto[k:], aportes + 1
+            elif primera:
+                resto = None   # la sigla no empieza donde empieza el nombre
+                break
+            primera = False
+        if resto == "" and aportes >= 2:
+            return True
+    return False
+
+
+def mismo_autor(a, b):
+    """Compara dos autores ya normalizados, tolerando siglas y pequeñas variantes."""
+    if not a or not b:
+        return False
+    if a == b or a.split()[-1:] == b.split()[-1:]:
+        return True
+    if es_acronimo_de(a, b) or es_acronimo_de(b, a):
+        return True
+    # una sola letra de diferencia en un apellido largo es un typo, no otro autor
+    # ("Gonzales" / "Gonzalez"); en apellidos cortos sí cambia la persona.
+    if min(len(a), len(b)) >= 6 and Levenshtein.distance(a, b) <= 1:
+        return True
+    return fuzz.ratio(a, b) >= UMBRAL_AUTOR
 
 
 def primer_autor(autores):
@@ -75,7 +120,7 @@ def revisar_citas(bloques, rangos, reglas, obs):
         for m in re.finditer(r"\bet al(?!\.)\b", t):
             obs.add("Citas", "Error", ubic(i, rangos, bloques, t[max(0, m.start()-30):m.end()+10]), "'et al' sin punto", "Debe escribirse 'et al.'")
         for m in re.finditer(rf"\(({APELLIDO})\s+(\d{{4}})\)", t):
-            obs.add("Citas", "Error", ubic(i, rangos, bloques, rangos, bloques), f"Cita sin coma entre autor y año: '{m.group(0)}'",
+            obs.add("Citas", "Error", ubic(i, rangos, bloques, t[max(0, m.start()-30):m.end()+10]), f"Cita sin coma entre autor y año: '{m.group(0)}'",
                     f"En APA 7: ({m.group(1)}, {m.group(2)})")
 
     if numericas:
@@ -84,7 +129,7 @@ def revisar_citas(bloques, rangos, reglas, obs):
 
     if ref_ini is None:
         obs.add("Citas", "Error", "Documento",
-                f"No se pudo verificar las citas contra la lista de referencias",
+                "No se pudo verificar las citas contra la lista de referencias",
                 f"No se identificó la sección '{sec_ref}'. Si el tesista la tituló de otra forma, "
                 f"agrega ese nombre en 'alias' dentro de reglas/{reglas.get('tipo', 'proyecto')}.yaml.")
         return
@@ -103,9 +148,6 @@ def revisar_citas(bloques, rangos, reglas, obs):
         if not m:
             obs.add("Citas", "Error", ubic(i, rangos, bloques, t, 50),
                     "Referencia sin año entre paréntesis", "Formato APA 7: Apellido, A. A. (año). Título...")
-        fli = b.paragraph_format.first_line_indent
-        if fli is None or fli >= 0:
-            pass  # se evalua en bloque abajo
         if re.search(r"doi\.org|doi:", t, re.I) and not re.search(r"https://doi\.org/", t):
             obs.add("Citas", "Advertencia", ubic(i, rangos, bloques, t), "DOI con formato antiguo",
                     "En APA 7 el DOI va como https://doi.org/xxxxx")
@@ -129,7 +171,7 @@ def revisar_citas(bloques, rangos, reglas, obs):
                 break
 
     def coincide(c_aut, c_anio, r):
-        return (c_aut == r["autor"] or c_aut.split()[-1:] == r["autor"].split()[-1:]) and (r["anio"] is None or c_anio == r["anio"])
+        return mismo_autor(c_aut, r["autor"]) and (r["anio"] is None or c_anio == r["anio"])
 
     ya = set()
     for a, y, txt, i in citas:
@@ -137,8 +179,8 @@ def revisar_citas(bloques, rangos, reglas, obs):
             continue
         ya.add((a, y))
         if not any(coincide(a, y, r) for r in refs):
-            mismo_autor = [r for r in refs if a == r["autor"]]
-            det = f"Hay referencia de ese autor con año {mismo_autor[0]['anio']}" if mismo_autor else "No figura en Referencias"
+            del_autor = [r for r in refs if a == r["autor"]]
+            det = f"Hay referencia de ese autor con año {del_autor[0]['anio']}" if del_autor else "No figura en Referencias"
             obs.add("Citas", "Error", ubic(i, rangos, bloques, txt), f"Cita sin referencia: '{txt}'", det)
 
     for r in refs:

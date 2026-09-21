@@ -1,6 +1,7 @@
 import os
 import sys
 import glob
+import shutil
 import yaml
 
 def _rutas():
@@ -21,19 +22,29 @@ def _rutas():
 RECURSOS, DATOS = _rutas()
 BASE = DATOS
 
-def tipos_disponibles(filtro=None):
-    """Carga la lista de tipos de documentos (reglas YAML) disponibles en la carpeta data/reglas"""
-    rutas = glob.glob(os.path.join(DATOS, "reglas", "*.yaml"))
+def carpeta_reglas():
+    """
+    Carpeta de reglas en uso: la editable del usuario si tiene algún .yaml,
+    si no la que viene empaquetada. Es la única fuente de verdad: la usan
+    tanto tipos_disponibles() como cargar_reglas().
+    """
+    propia = os.path.join(DATOS, "reglas")
+    if glob.glob(os.path.join(propia, "*.yaml")):
+        return propia
+    return os.path.join(RECURSOS, "reglas")
+
+
+def tipos_disponibles():
+    """[(tipo, configurado)] de los tipos de documento con reglas disponibles"""
     tipos = []
-    for r in rutas:
-        nombre = os.path.basename(r).replace(".yaml", "")
-        if filtro and nombre != filtro:
-            continue
+    for ruta in sorted(glob.glob(os.path.join(carpeta_reglas(), "*.yaml"))):
+        nombre = os.path.splitext(os.path.basename(ruta))[0]
         try:
-            with open(r, "r", encoding="utf8") as f:
-                tipos.append((nombre, yaml.safe_load(f)))
+            with open(ruta, "r", encoding="utf8") as f:
+                reglas = yaml.safe_load(f) or {}
+            tipos.append((nombre, bool(reglas.get("secciones"))))
         except Exception:
-            pass
+            tipos.append((nombre, False))
     return tipos
 
 def ruta_recurso(nombre):
@@ -41,7 +52,22 @@ def ruta_recurso(nombre):
     return os.path.join(RECURSOS, nombre)
 
 def preparar_datos():
-    """Asegura que los datos existan (útil al iniciar por primera vez o desde el ejecutable)"""
-    os.makedirs(os.path.join(DATOS, "reglas"), exist_ok=True)
-    os.makedirs(os.path.join(DATOS, "plantillas"), exist_ok=True)
+    """
+    Asegura que los datos editables existan. Desde el .exe, DATOS (junto al ejecutable)
+    empieza vacío: se copian ahí las reglas y plantillas empaquetadas para que el programa
+    funcione en una PC nueva y el revisor pueda editarlas. Nunca pisa un archivo existente.
+    """
+    for sub in ("reglas", "plantillas"):
+        destino = os.path.join(DATOS, sub)
+        os.makedirs(destino, exist_ok=True)
+        origen = os.path.join(RECURSOS, sub)
+        if os.path.abspath(origen) == os.path.abspath(destino) or not os.path.isdir(origen):
+            continue
+        for nombre in os.listdir(origen):
+            if os.path.exists(os.path.join(destino, nombre)):
+                continue
+            try:
+                shutil.copy2(os.path.join(origen, nombre), os.path.join(destino, nombre))
+            except OSError:
+                pass
 

@@ -24,15 +24,20 @@ def _norm(t):
 
 
 def cargar(ruta):
+    """Devuelve (reglas, error). Un YAML mal escrito devuelve el motivo en vez de callarse."""
     if not ruta or not os.path.exists(ruta):
-        return []
+        return [], None
     try:
         with open(ruta, encoding="utf8") as fh:
             datos = yaml.safe_load(fh) or {}
-        reglas = datos.get("reglas") or []
-        return [r for r in reglas if isinstance(r, dict) and r.get("observacion") and r.get("activa", True)]
-    except Exception:
-        return []
+    except yaml.YAMLError as ex:
+        return [], f"{os.path.basename(ruta)} tiene un error de formato YAML: {str(ex)[:200]}"
+    except OSError as ex:
+        return [], f"No se pudo leer {os.path.basename(ruta)}: {ex}"
+    if not isinstance(datos, dict):
+        return [], f"{os.path.basename(ruta)} debe empezar con 'reglas:' y una lista debajo."
+    reglas = datos.get("reglas") or []
+    return [r for r in reglas if isinstance(r, dict) and r.get("observacion") and r.get("activa", True)], None
 
 
 def _texto_de(bloques, rangos, donde, Paragraph, Table):
@@ -54,7 +59,12 @@ def _texto_de(bloques, rangos, donde, Paragraph, Table):
 
 def aplicar(ruta_reglas, bloques, rangos, mapa, obs, contar_citas, Paragraph, Table):
     """agrega al informe las observaciones de las reglas propias del revisor"""
-    for regla in cargar(ruta_reglas):
+    reglas, error = cargar(ruta_reglas)
+    if error:
+        obs.add("Revisor", "Revisar", "Documento",
+                "No se aplicaron tus reglas propias", error)
+        return
+    for regla in reglas:
         donde = regla.get("donde") or "documento"
         texto, ini = _texto_de(bloques, rangos, donde, Paragraph, Table)
         if texto is None:

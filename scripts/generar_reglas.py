@@ -2,7 +2,7 @@
 Genera un archivo de reglas a partir de una plantilla Word (.docx).
 
 Uso:
-    python generar_reglas.py plantillas/borrador.docx --tipo borrador
+    python scripts/generar_reglas.py data/plantillas/borrador.docx --tipo borrador
 
 Crea reglas/borrador.yaml con: esquema de secciones y subsecciones, margenes, fuente,
 tamano, interlineado y encabezado, todo leido de la plantilla.
@@ -17,9 +17,9 @@ from collections import Counter
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from revisor import DATOS as BASE, preparar_datos  # noqa: E402
-from revisor import Estilos, limpiar_titulo  # noqa: E402
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src"))
+from core.config import DATOS as BASE, preparar_datos  # noqa: E402
+from core.utils import Estilos  # noqa: E402
 
 RE_CAPITULO = re.compile(r"^\s*CAP[IÍ]TULO\s+([IVXLC]+|\d+)\b", re.I)
 RE_NUMERADO = re.compile(r"^\s*(\d+(?:\.\d+)*)\.?\s+\S")
@@ -61,7 +61,6 @@ def extraer(doc):
     minimo = min(n for n, _ in candidatos)
     secciones, subs = [], {}
     actual = None
-    ultimo_fue_capitulo = False
     parrafos = doc.paragraphs
     for n, p in candidatos:
         nombre = texto_titulo(p.text)
@@ -213,7 +212,7 @@ def escribir_yaml(tipo, ruta_plantilla, secciones, subs, f):
     lin.append("")
     lin.append("secciones_con_tabla: []        # COMPLETAR, ej. [\"Cronograma de actividades\"]")
     lin.append("")
-    lin.append(f"# Si aparecen estos titulos, el documento probablemente es de otro tipo y no se revisa")
+    lin.append("# Si aparecen estos titulos, el documento probablemente es de otro tipo y no se revisa")
     lin.append(f"secciones_de_otro_tipo: [{', '.join(q(x) for x in otro)}]")
     lin.append("")
     lin.append("citas:")

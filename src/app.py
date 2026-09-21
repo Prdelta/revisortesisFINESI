@@ -15,12 +15,13 @@ import ttkbootstrap as tb
 from tkinter import filedialog, messagebox, ttk
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import core
-import utilidades
-import reportes
+import core          # noqa: F401  (import explicito para PyInstaller)
+import utilidades    # noqa: F401
+import reportes      # noqa: F401
 
 import core.orquestador as orquestador
-from core.config import DATOS, RECURSOS, tipos_disponibles, ruta_recurso
+from core.config import DATOS, tipos_disponibles, ruta_recurso
+from core.app_config import AppConfig
 from utilidades import reglas_revisor
 from core.orquestador import revisar, preparar_datos, Opciones  # noqa: E402
 
@@ -49,36 +50,25 @@ class App(tb.Window):
         self.archivos = []
         self.cola = queue.Queue()
         self.trabajando = False
-        self.cfg = self._leer_config()
+        
+        self.config_manager = AppConfig(os.path.join(DATOS, "config.json"))
+        self.cfg = self.config_manager.leer_config()
+        
         self._estilos()
         self._construir()
         self.protocol("WM_DELETE_WINDOW", self._cerrar)
         self.after(120, self._vaciar_cola)
 
     # ---------------------------------------------------------------- preferencias
-    def _ruta_config(self):
-        return os.path.join(DATOS, "config.json")
-
-    def _leer_config(self):
-        try:
-            with open(self._ruta_config(), encoding="utf8") as fh:
-                return json.load(fh)
-        except Exception:
-            return {}
-
     def _guardar_config(self):
-        try:
-            datos = dict(revisor=self.campos["revisor"][0].get().strip(),
-                         n_revision=self.campos["n_revision"][0].get().strip(),
-                         extras=self.extras.get("1.0", "end").strip(),
-                         formato=self.formato.get(),
-                         tipo=self.tipo.get(), salida=self.salida.get().strip(),
-                         excel=bool(self.excel.get()), gramatica=bool(self.gramatica.get()),
-                         abrir=bool(self.abrir.get()))
-            with open(self._ruta_config(), "w", encoding="utf8") as fh:
-                json.dump(datos, fh, ensure_ascii=False, indent=2)
-        except Exception:
-            pass
+        datos = dict(revisor=self.campos["revisor"][0].get().strip(),
+                     n_revision=self.campos["n_revision"][0].get().strip(),
+                     extras=self.extras.get("1.0", "end").strip(),
+                     formato=self.formato.get(),
+                     tipo=self.tipo.get(), salida=self.salida.get().strip(),
+                     excel=bool(self.excel.get()), gramatica=bool(self.gramatica.get()),
+                     abrir=bool(self.abrir.get()))
+        self.config_manager.guardar_config(datos)
 
     def _cerrar(self):
         self._guardar_config()
@@ -304,10 +294,10 @@ class App(tb.Window):
     def cambio_tipo(self):
         tipo = self.tipo.get()
         try:
-            reglas = reglas_revisor.cargar_reglas(tipo)
+            reglas = orquestador.cargar_reglas(tipo)
         except Exception as ex:
             self.aviso_tipo.configure(text=str(ex).split("\n")[0] +
-                                      f"  Genera las reglas desde la plantilla oficial (ver LEEME).",
+                                      "  Genera las reglas desde la plantilla oficial (ver README).",
                                       foreground=ROJO)
             return
         self.aviso_tipo.configure(text=f"Esquema con {len(reglas['secciones'])} secciones.", foreground=SUAVE)
@@ -381,7 +371,6 @@ class App(tb.Window):
             messagebox.showerror("Revisor de Tesis", f"No se pudo abrir el archivo:\n{ruta}\n\n{ex}")
 
     def editar_mis_reglas(self):
-        from utilidades import reglas_revisor
         ruta = reglas_revisor.crear_si_falta(os.path.join(DATOS, "mis_reglas.yaml"))
         self._abrir_archivo(ruta)
         self.escribir("Se abrió mis_reglas.yaml. Guarda el archivo y vuelve a revisar; "
@@ -430,7 +419,7 @@ class App(tb.Window):
             messagebox.showinfo("Revisor de Tesis", "Agrega al menos un documento .docx.")
             return
         try:
-            reglas = reglas_revisor.cargar_reglas(self.tipo.get())
+            reglas = orquestador.cargar_reglas(self.tipo.get())
         except Exception as ex:
             messagebox.showerror("Revisor de Tesis", str(ex))
             return

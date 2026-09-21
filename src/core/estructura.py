@@ -1,28 +1,19 @@
-import argparse
+"""
+Estructura del documento: detecta los títulos del esquema oficial, verifica que
+estén todos, en orden y con contenido, y marca el texto guía de la plantilla que
+el tesista no borró.
+"""
 import os
 import re
-import shutil
-import subprocess
-import sys
-import tempfile
-import unicodedata
-from collections import Counter, defaultdict
-from datetime import datetime
-import yaml
+from collections import Counter
+
 from docx import Document
-from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.oxml.ns import qn
 from docx.table import Table
 from docx.text.paragraph import Paragraph
-from openpyxl import Workbook
-from openpyxl.styles import Alignment, Font, PatternFill
 from rapidfuzz import fuzz
-from utilidades import localizador
-from utilidades import reglas_revisor
-from reportes.reporte_resumen import escribir_resumen, redactar
-from reportes.reporte_word import escribir_word
-from .utils import *
-from .config import DATOS, RECURSOS
+
+from .utils import corto, limpiar_titulo, norm, ubic
+
 
 def es_indice(p):
     """lineas de tabla de contenido / indice de tablas (repiten los titulos con numero de pagina)"""
@@ -32,13 +23,65 @@ def es_indice(p):
     return re.search(r"(\t|\.{4,}|…{2,})\s*\d+\s*$", p.text) is not None
 
 
+# Un párrafo es un título por varias razones independientes del texto que dice.
+# Apoyarse solo en el parecido textual dejaba fuera títulos legítimos ("Fuentes
+# bibliográficas" puntúa 79 contra 'bibliografia'), y eso no producía ruido sino
+# silencio: sin la sección, los chequeos que dependen de ella no reportan nada.
+RE_CAPITULO = re.compile(r"^\s*CAP[IÍ]TULO\s+(?:[IVXLC]+|\d+)\b", re.I)
+RE_NUMERADO = re.compile(r"^\s*\d+(?:\.\d+)*\.?\s+\S")
+
+UMBRAL = 82              # parecido exigido a un párrafo que no da ninguna señal de formato
+UMBRAL_CON_SENAL = 72    # cuando el formato confirma que es un título, se puede relajar
+UMBRAL_SUGERENCIA = 55   # por debajo de esto no se sugiere nada
+MARGEN_MINIMO = 6        # el mejor candidato debe despegarse del segundo para aceptarlo
+
+
+def senales_de_titulo(p, texto):
+    """Indicios de formato de que un párrafo es un título, independientes de su texto."""
+    senales = []
+    estilo = (p.style.name or "").lower() if p.style is not None else ""
+    if re.search(r"(heading|t[ií]tulo)\s*\d", estilo):
+        senales.append("estilo de título de Word")
+    if RE_CAPITULO.match(texto) or RE_NUMERADO.match(texto):
+        senales.append("numeración")
+    runs = [r for r in p.runs if r.text.strip()]
+    if runs and all(r.bold for r in runs):
+        senales.append("negrita")
+    letras = [c for c in texto if c.isalpha()]
+    if len(letras) > 3 and all(c.isupper() for c in letras):
+        senales.append("mayúsculas")
+    return senales
+
+
+def _dos_mejores(limpio, candidatos):
+    """(mejor_nombre, mejor_puntaje, puntaje_del_segundo_nombre_distinto)"""
+    mejor, punt, segundo = None, 0, 0
+    for forma, nombre in candidatos:
+        p = fuzz.ratio(limpio, forma)
+        if p > punt:
+            if nombre != mejor:
+                segundo = punt
+            mejor, punt = nombre, p
+        elif nombre != mejor and p > segundo:
+            segundo = p
+    return mejor, punt, segundo
+
+
 def detectar_secciones(bloques, reglas):
-    """devuelve lista de (indice_bloque, nombre_canonico) de los titulos encontrados"""
+    """
+    Devuelve (unicos, todos, sueltos):
+      unicos   [(i, nombre)]  primera aparición de cada sección del esquema
+      todos    [(i, nombre)]  todas las coincidencias, para detectar duplicados
+      sueltos  [(i, texto, texto_normalizado)]  párrafos que parecen título por su
+               formato pero no alcanzaron el umbral. Permiten sugerir un alias en vez
+               de afirmar que falta la sección.
+    """
     candidatos = []
     for sec in reglas["secciones"]:
         for forma in [sec["nombre"]] + sec.get("alias", []):
             candidatos.append((norm(forma), sec["nombre"]))
-    encontrados = []
+
+    encontrados, sueltos = [], []
     for i, b in enumerate(bloques):
         if not isinstance(b, Paragraph):
             continue
@@ -48,38 +91,73 @@ def detectar_secciones(bloques, reglas):
         limpio = limpiar_titulo(txt)
         if not limpio or len(limpio) > 70:
             continue
-        mejor, puntaje = None, 0
-        for forma, nombre in candidatos:
-            p = fuzz.ratio(limpio, forma)
-            if p > puntaje:
-                mejor, puntaje = nombre, p
-        if puntaje < 82:
-            # el tesista alargó el título ("Referencias bibliográficas", "Metodología de la investigación"):
-            # vale si el nombre esperado aparece completo dentro del título
+
+        mejor, puntaje, segundo = _dos_mejores(limpio, candidatos)
+        senales = senales_de_titulo(b, txt)
+        umbral = UMBRAL_CON_SENAL if senales else UMBRAL
+
+        if puntaje < umbral:
+            # el tesista alargó el título ("Referencias bibliográficas"): vale si el
+            # nombre esperado aparece completo dentro del título
             for forma, nombre in candidatos:
                 if len(forma) >= 8 and re.search(rf"\b{re.escape(forma)}\b", limpio):
-                    mejor, puntaje = nombre, 82
+                    mejor, puntaje, segundo = nombre, max(puntaje, umbral), 0
                     break
-        if puntaje >= 82:
+
+        # con el umbral relajado exigimos además que el candidato no sea ambiguo
+        ambiguo = umbral == UMBRAL_CON_SENAL and puntaje < UMBRAL and (puntaje - segundo) < MARGEN_MINIMO
+        if puntaje >= umbral and not ambiguo:
             encontrados.append((i, mejor))
+        elif senales:
+            sueltos.append((i, txt, limpio))
+
     # si un titulo aparece repetido (ej. "Referencias" citado en el texto), nos quedamos con el primero
     vistos, unicos = set(), []
     for i, n in encontrados:
         if n not in vistos:
             unicos.append((i, n))
             vistos.add(n)
-    return unicos, encontrados
+    return unicos, encontrados, sueltos
 
 
-def revisar_estructura(bloques, reglas, obs):
-    secciones, todos = detectar_secciones(bloques, reglas)
+def revisar_estructura(bloques, reglas, obs, deteccion=None):
+    secciones, todos, sueltos = deteccion or detectar_secciones(bloques, reglas)
     esperado = [s["nombre"] for s in reglas["secciones"]]
     presentes = [n for _, n in secciones]
+    tipo = reglas.get("tipo", "proyecto")
+
+    formas_de = {s["nombre"]: [norm(f) for f in [s["nombre"]] + s.get("alias", [])]
+                 for s in reglas["secciones"]}
 
     for n in esperado:
-        if n not in presentes:
+        if n in presentes:
+            continue
+        # ¿hay algún párrafo con formato de título que se parezca a ESTA sección?
+        # Se puntúa contra las formas de 'n', no contra su mejor coincidencia global:
+        # un título puede parecerse más a otra sección ya encontrada y aun así ser este.
+        # Solo se sugiere si además 'n' es la sección a la que ESE título más se parece:
+        # si el candidato se explica mejor por otra sección, sugerirlo es mala pista.
+        parecidos = []
+        for i, txt, limpio in sueltos:
+            propio = max(fuzz.ratio(limpio, f) for f in formas_de[n])
+            ajeno = max((max(fuzz.ratio(limpio, f) for f in formas)
+                         for otra, formas in formas_de.items() if otra != n), default=0)
+            if propio >= UMBRAL_SUGERENCIA and propio >= ajeno - MARGEN_MINIMO:
+                parecidos.append((propio, txt, i))
+        parecidos.sort()
+        if parecidos:
+            punt, txt, i = parecidos[-1]
+            punt = int(punt)
+            obs.add("Estructura", "Error", ubic(i, {}, bloques, txt, 50),
+                    f"No se reconoció la sección '{n}'",
+                    f"El título más parecido del documento es '{corto(txt, 60)}' "
+                    f"({punt}% de parecido). Si es esa sección, agregar "
+                    f"'{corto(txt, 45)}' a los 'alias' de '{n}' en reglas/{tipo}.yaml. "
+                    f"Si no lo es, entonces la sección falta de verdad.")
+        else:
             obs.add("Estructura", "Error", "Documento", f"Falta la sección '{n}'",
-                    "No se encontró un título que corresponda. Si existe con otro nombre, agregar el alias en reglas.yaml.")
+                    f"No se encontró un título que corresponda. Si existe con otro nombre, "
+                    f"agregar el alias en reglas/{tipo}.yaml.")
 
     cnt = Counter(n for _, n in todos)
     for n, c in cnt.items():
@@ -119,7 +197,6 @@ def revisar_estructura(bloques, reglas, obs):
                 t = tablas[0]
                 celdas = {c.text.strip() for r in t.rows for c in r.cells if c.text.strip()}
                 propias = {x for x in celdas if norm(x) not in TEXTOS_PLANTILLA_TABLAS}
-                llenas = propias
                 if not propias:
                     obs.add("Estructura", "Error", n, f"La tabla de '{n}' está vacía o casi vacía",
                             "Solo tiene el encabezado de la plantilla.")

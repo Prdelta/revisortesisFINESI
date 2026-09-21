@@ -1,51 +1,12 @@
-import argparse
-import os
+"""
+Extensión del documento: número de páginas, palabras del título y cantidad de
+palabras clave.
+"""
 import re
-import shutil
-import subprocess
-import sys
-import tempfile
-import unicodedata
-from collections import Counter, defaultdict
-from datetime import datetime
-import yaml
-from docx import Document
-from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.oxml.ns import qn
-from docx.table import Table
+
 from docx.text.paragraph import Paragraph
-from openpyxl import Workbook
-from openpyxl.styles import Alignment, Font, PatternFill
-from rapidfuzz import fuzz
-from utilidades import localizador
-from utilidades import reglas_revisor
-from reportes.reporte_resumen import escribir_resumen, redactar
-from reportes.reporte_word import escribir_word
-from .utils import *
-from .config import DATOS, RECURSOS
 
-def buscar_soffice():
-    import shutil
-    for nombre in ("soffice", "libreoffice"):
-        if shutil.which(nombre):
-            return shutil.which(nombre)
-    for ruta in (r"C:\Program Files\LibreOffice\program\soffice.exe",
-                 r"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
-                 "/Applications/LibreOffice.app/Contents/MacOS/soffice",
-                 "/usr/bin/soffice",
-                 "/usr/bin/libreoffice"):
-        if os.path.exists(ruta):
-            return ruta
-    return None
-
-
-def paginas_pdf(pdf):
-    try:
-        from pypdf import PdfReader
-        return len(PdfReader(pdf).pages)
-    except Exception:
-        with open(pdf, "rb") as fh:
-            return len(re.findall(rb"/Type\s*/Page[^s]", fh.read())) or None
+from .utils import corto
 
 
 def contar_paginas(ruta, mapa=None):
@@ -59,9 +20,8 @@ def contar_paginas(ruta, mapa=None):
         m = re.search(r"<Pages>(\d+)</Pages>", xml)
         if m and int(m.group(1)) > 0:
             return int(m.group(1)), "dato guardado por Word al último guardado"
-    except Exception as ex:
-        import traceback
-        print(f"Error al contar_paginas zipfile: {ex}\n{traceback.format_exc()}")
+    except Exception:
+        pass   # sin el dato de Word se informa más abajo que no se pudo contar
     return None, None
 
 

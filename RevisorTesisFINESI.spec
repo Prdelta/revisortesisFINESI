@@ -10,15 +10,18 @@ from PyInstaller.utils.hooks import collect_all, collect_data_files
 datos = [
     ("data/reglas", "reglas"),
     ("data/plantillas", "plantillas"),
-    ("dic", "dic"),
+    ("data/dic", "dic"),
     ("data/permitidas.txt", "."),
     ("data/mis_reglas.yaml", "."),
     ("data/registro.csv", "."),
-    ("LEEME.md", "."),
     ("icono.ico", "."),
+    ("icono.png", "."),
 ]
-datos += [("icono.png", ".")]
-datos = [(o, d) for o, d in datos if os.path.exists(o)]
+# Antes se filtraba en silencio lo que no existiera: así el diccionario quedó fuera
+# del .exe durante varias compilaciones sin que nadie se enterara. Ahora falla fuerte.
+faltan = [o for o, _ in datos if not os.path.exists(o)]
+if faltan:
+    raise SystemExit("Faltan recursos que deben ir dentro del .exe: " + ", ".join(faltan))
 
 # python-docx necesita su plantilla interna; language_tool_python sus datos
 datos += collect_data_files("docx")

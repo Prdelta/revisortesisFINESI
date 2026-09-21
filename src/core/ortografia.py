@@ -1,29 +1,18 @@
-import argparse
+"""
+Ortografía, gramática y tipografía. Usa LanguageTool si hay Java disponible;
+si no, cae al diccionario hunspell es_PE (solo ortografía).
+"""
 import os
 import re
 import shutil
-import subprocess
-import sys
-import tempfile
-import unicodedata
-from collections import Counter, defaultdict
-from datetime import datetime
-import yaml
-from docx import Document
-from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.oxml.ns import qn
-from docx.table import Table
+from collections import defaultdict
+
 from docx.text.paragraph import Paragraph
-from openpyxl import Workbook
-from openpyxl.styles import Alignment, Font, PatternFill
-from rapidfuzz import fuzz
-from utilidades import localizador
-from utilidades import reglas_revisor
-from reportes.reporte_resumen import escribir_resumen, redactar
-from reportes.reporte_word import escribir_word
-from .utils import *
-from .config import DATOS, RECURSOS, ruta_recurso
-from .citas import RE_PAREN, RE_NARR
+
+from .config import ruta_recurso
+from .citas import RE_NARR, RE_PAREN
+from .utils import corto, juntar, ubic
+
 
 def cargar_permitidas(ruta):
     if not ruta or not os.path.exists(ruta):
@@ -62,6 +51,13 @@ def spans_citas(t):
 def ortografia_languagetool(textos, permitidas):
     import language_tool_python
     tool = language_tool_python.LanguageTool("es")
+    try:
+        return _languagetool(tool, textos, permitidas)
+    finally:
+        tool.close()   # sin esto, un fallo a mitad del bucle dejaba el proceso Java vivo
+
+
+def _languagetool(tool, textos, permitidas):
     salida = []
     for i, t in textos:
         excluir = spans_citas(t)
@@ -80,13 +76,18 @@ def ortografia_languagetool(textos, permitidas):
                 continue  # listas o palabras clave, no son oraciones
             clase = "Ortografía" if tipo == "misspelling" else "Gramática/puntuación"
             salida.append((i, frag, f"[{clase}] {m.message}", ", ".join(m.replacements[:3]), m.context))
-    tool.close()
     return salida
 
 
 def ortografia_hunspell(textos, permitidas, ruta_dic):
     from spylls.hunspell import Dictionary
-    d = Dictionary.from_files(ruta_dic if os.path.isabs(ruta_dic) else ruta_recurso(ruta_dic))
+    base = ruta_dic if os.path.isabs(ruta_dic) else ruta_recurso(ruta_dic)
+    if not os.path.exists(base + ".dic"):
+        raise FileNotFoundError(
+            f"No se encontró el diccionario '{os.path.basename(base)}' en "
+            f"{os.path.dirname(base)}. Sin él no se puede revisar la ortografía "
+            f"cuando no hay Java para LanguageTool.")
+    d = Dictionary.from_files(base)
     desconocidas = defaultdict(list)
     for i, t in textos:
         # quitamos citas y URLs para no marcar apellidos ni direcciones
@@ -112,9 +113,8 @@ def ortografia_hunspell(textos, permitidas, ruta_dic):
                 sug.append(s)
                 if len(sug) == 3:
                     break
-        except Exception as ex:
-            import traceback
-            print(f"Error en hunspell suggest para '{w}': {ex}\n{traceback.format_exc()}")
+        except Exception:
+            pass   # sin sugerencias: la palabra se reporta igual, que es lo que importa
         i, ctx = lugares[0]
         salida.append((i, w, f"Palabra no reconocida ({len(lugares)} vez/veces)", ", ".join(sug), ctx))
     return salida

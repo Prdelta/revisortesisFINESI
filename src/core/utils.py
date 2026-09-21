@@ -1,32 +1,25 @@
-import argparse
-import os
+"""
+Piezas compartidas por los módulos de revisión: normalización de texto, ubicación
+legible de una observación, recorrido del documento en orden real y resolución de
+los estilos efectivos de Word (run > estilo > Normal > docDefaults).
+"""
 import re
-import shutil
-import subprocess
-import sys
-import tempfile
 import unicodedata
-from collections import Counter, defaultdict
-from datetime import datetime
-import yaml
-from docx import Document
+
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
 from docx.table import Table
 from docx.text.paragraph import Paragraph
-from openpyxl import Workbook
-from openpyxl.styles import Alignment, Font, PatternFill
-from rapidfuzz import fuzz
-from utilidades import localizador
-from utilidades import reglas_revisor
-from reportes.reporte_resumen import escribir_resumen, redactar
-from reportes.reporte_word import escribir_word
+
+__all__ = ["norm", "corto", "limpiar_titulo", "juntar", "ubic", "Obs", "SEVERIDADES",
+           "bloques_en_orden", "Estilos"]
+
 
 def norm(txt):
     """minusculas, sin tildes, sin signos, espacios simples"""
     txt = unicodedata.normalize("NFD", txt.lower())
     txt = "".join(c for c in txt if unicodedata.category(c) != "Mn")
-    txt = re.sub(r"[^a-z0-9ñ ]+", " ", txt)
+    txt = re.sub(r"[^a-z0-9 ]+", " ", txt)   # la ñ ya se volvió n al quitar los diacríticos
     return re.sub(r"\s+", " ", txt).strip()
 
 
@@ -72,11 +65,25 @@ def ubic(i, rangos, bloques, txt=None, n=40):
     return f"{sec}: '{corto(txt or '', n)}'" if txt else sec
 
 
+SEVERIDADES = ("Error", "Advertencia", "Revisar")
+
+
 class Obs:
-    def __init__(self):
+    """
+    Observaciones de una revisión. 'ajustes' permite bajarle (o subirle) la severidad
+    a una categoría entera desde el archivo de reglas, sin tocar código:
+
+        severidades:
+          Citas: Advertencia
+    """
+
+    def __init__(self, ajustes=None):
         self.items = []
+        self.ajustes = {str(k).strip().lower(): v for k, v in (ajustes or {}).items()
+                        if v in SEVERIDADES}
 
     def add(self, categoria, severidad, ubicacion, observacion, detalle=""):
+        severidad = self.ajustes.get(str(categoria).strip().lower(), severidad)
         self.items.append(dict(categoria=categoria, severidad=severidad, ubicacion=ubicacion,
                                observacion=observacion, detalle=detalle))
 

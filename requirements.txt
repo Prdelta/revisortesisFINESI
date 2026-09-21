@@ -5,3 +5,4 @@ rapidfuzz
 spylls
 pypdf
 language_tool_python
+ttkbootstrap

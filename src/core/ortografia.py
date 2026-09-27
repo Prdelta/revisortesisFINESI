@@ -42,8 +42,14 @@ def es_termino_tecnico(palabra, texto, pos):
         return True                                   # v1.0, 2.3.1
     if p.isupper() and 2 <= len(p) <= 6:
         return True                                   # sigla
-    if re.search(r"[a-z][A-Z]|[_\d]", p):
-        return True                                   # camelCase, snake_case, con dígitos
+    if re.search(r"[a-z][A-Z]|[A-Z]{2}[a-z]|[_\d]", p):
+        return True                                   # camelCase, CABra, snake_case, con dígitos
+    # la palabra entera con sus guiones: la 'N' de "N-HiTS" es parte de un identificador
+    for m in re.finditer(r"[\w\-]+", texto):
+        if m.start() <= pos < m.end():
+            if "-" in m.group(0) and re.search(r"[a-z][A-Z]|[A-Z]{2}[a-z]|\d", m.group(0)):
+                return True
+            break
     bajo = texto.lower()
     for loc in LOCUCIONES:
         # \s también cubre el espacio de no separación que Word pone en "post hoc"
@@ -63,6 +69,8 @@ def revisar_tipografia(bloques, rangos, obs):
         (r"[a-záéíóúñ][,;](?=[A-Za-zÁÉÍÓÚÑáéíóúñ])", "Falta espacio después de coma o punto y coma"),
         (r"[a-záéíóúñ]\.(?=[A-ZÁÉÍÓÚÑ][a-záéíóúñ])", "Falta espacio después de punto"),
         (r"\(\s+|\s+\)", "Espacio dentro de paréntesis"),
+        # "2021(Nevo", "Sutcliffe(NSE)"; no toca "PAR(1)" ni "f(x)", donde no sigue mayúscula
+        (r"[a-záéíóúñ\d]\((?=[A-ZÁÉÍÓÚÑ])", "Falta espacio antes de paréntesis"),
     ]
     conteo = defaultdict(list)
     for i, b in enumerate(bloques):
@@ -73,7 +81,7 @@ def revisar_tipografia(bloques, rangos, obs):
             for m in re.finditer(patron, t):
                 if "doi" in t[max(0, m.start()-30):m.end()].lower() or "http" in t[max(0, m.start()-40):m.end()].lower():
                     continue
-                conteo[nombre].append(ubic(i, rangos, bloques, "..." + t[max(0, m.start()-15):m.end()+15]))
+                conteo[nombre].append(ubic(i, rangos, bloques, "..." + t[max(0, m.start()-3):m.end()+27]))
     for nombre, lugares in conteo.items():
         obs.add("Ortografía", "Advertencia", juntar(lugares[:4]), f"{nombre} ({len(lugares)} caso(s))")
 
@@ -92,8 +100,22 @@ def ortografia_languagetool(textos, permitidas):
         tool.close()   # sin esto, un fallo a mitad del bucle dejaba el proceso Java vivo
 
 
+def nombres_propios(textos):
+    """
+    Palabras que en alguna parte del texto aparecen con mayúscula en mitad de una
+    oración: son nombres propios ("de Caravan") aunque en otra aparezcan al inicio de
+    una oración ("Caravan estandarizó…"), que es donde el corrector las marcaba.
+    """
+    nombres = set()
+    for _, t in textos:
+        for m in re.finditer(r"(?<=[\w,;)] )([A-ZÁÉÍÓÚÑ][\wáéíóúñü\-]{2,})", t):
+            nombres.add(m.group(1))
+    return nombres
+
+
 def _languagetool(tool, textos, permitidas):
     salida = []
+    propios = nombres_propios(textos)
     for i, t in textos:
         excluir = spans_citas(t)
         for m in tool.check(t):
@@ -103,7 +125,7 @@ def _languagetool(tool, textos, permitidas):
             frag = t[m.offset:m.offset + largo]
             if any(a <= m.offset < b for a, b in excluir) or frag.lower() in permitidas:
                 continue
-            if tipo == "misspelling" and es_termino_tecnico(frag, t, m.offset):
+            if tipo == "misspelling" and (es_termino_tecnico(frag, t, m.offset) or frag in propios):
                 continue
             if tipo == "misspelling" and frag[:1].isupper() and m.offset > 0 and not re.search(r"[.!?:]\s*$", t[:m.offset]):
                 continue  # probable nombre propio
@@ -125,6 +147,7 @@ def ortografia_hunspell(textos, permitidas, ruta_dic):
             f"{os.path.dirname(base)}. Sin él no se puede revisar la ortografía "
             f"cuando no hay Java para LanguageTool.")
     d = Dictionary.from_files(base)
+    propios = nombres_propios(textos)
     desconocidas = defaultdict(list)
     for i, t in textos:
         # quitamos citas y URLs para no marcar apellidos ni direcciones
@@ -134,7 +157,7 @@ def ortografia_hunspell(textos, permitidas, ruta_dic):
         for m in palabras:
             w = m.group(0)
             ini = m.start()
-            if len(w) < 3 or w.isupper() or w.lower() in permitidas or es_termino_tecnico(w, limpio, ini):
+            if len(w) < 3 or w.isupper() or w.lower() in permitidas or w in propios                     or es_termino_tecnico(w, limpio, ini):
                 continue
             inicio_oracion = ini == 0 or re.search(r"[.!?:]\s*$", limpio[:ini]) is not None
             if w[0].isupper() and not inicio_oracion:

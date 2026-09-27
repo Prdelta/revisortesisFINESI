@@ -14,7 +14,9 @@ formato:
   tamano_tablas_pt: 9             # tablas y sus notas (Nota., Fuente:) pueden ir en este tamaño.
                                   # APA lo admite. CONFIRMAR con la Dirección; null = exigir tamano_pt.
   interlineado: 1.0
-  alineacion_cuerpo: justificado
+  alineacion_cuerpo: justificado
+  justificar_referencias: false    # APA 7 alinea las referencias a la izquierda;
+                                    # true = exigirles también el justificado
   tolerancia_fuera_de_norma: 0.03
   encabezado_debe_contener:
     - "Universidad Nacional del Altiplano"

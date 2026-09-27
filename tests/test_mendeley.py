@@ -176,3 +176,72 @@ def test_defectos_de_forma_de_una_referencia(referencia, defecto):
 ])
 def test_una_referencia_bien_formada_no_se_observa(referencia):
     assert defectos_de_referencia(referencia) == []
+
+
+def test_la_observacion_muestra_el_texto_real_del_defecto():
+    """antes todas decían '2024 627:8004', el ejemplo, en vez de lo que tenía cada referencia"""
+    obs = defectos_de_referencia("Anwar, H. (2024). Intercomparison. Scientific Reports 2024 14:1, 14(1), 17468-. "
+                                 "https://doi.org/10.1038/s41598-024-63989-7")
+    textos = " ".join(o for o, _ in obs)
+    assert "2024 14:1" in textos and "627:8004" not in textos
+    assert "guion colgando: '17468-.'" in textos
+
+
+def test_los_puntos_suspensivos_de_apa_en_mas_de_20_autores_son_correctos():
+    ref = ("Nevo, S., Morin, E., Gerzi Rosenthal, A., Metzger, A., Barshai, C., Weitzner, D., Voloshin, D., "
+           "Kratzert, F., Elidan, G., Dror, G., Begelman, G., Nearing, G., Shalev, G., Noga, H., Shavitt, I., "
+           "Yuklea, L., Royz, M., Giladi, N., Peled Levi, N., … Matias, Y. (2022). Flood forecasting with "
+           "machine learning models. Hydrology and Earth System Sciences, 26(15), 4013-4032. "
+           "https://doi.org/10.5194/HESS-26-4013-2022")
+    assert defectos_de_referencia(ref) == []
+
+
+@pytest.mark.parametrize("doi, sobrante", [
+    ("https://doi.org/10.1029/2022WR033918;ISSUE:ISSUE:DOI", ";ISSUE"),
+    ("https://doi.org/10.14778/3665844.3665863;TAXONOMY:TAXONOMY:ACM-PUBTYPE", ";TAXONOMY"),
+    ("https://doi.org/10.3389/FEART.2020.505467/FULL", "/FULL"),
+    ("https://doi.org/10.3389/FRWA.2023.1166124/TEXT", "/TEXT"),
+])
+def test_doi_con_texto_sobrante(doi, sobrante):
+    obs = defectos_de_referencia(f"Gauch, M. (2023). In defense of metrics. Water Resources Research, 59(6), e2022WR033918. {doi}")
+    assert any("DOI con texto sobrante" in o and sobrante in o for o, _ in obs), obs
+
+
+# --------------------------------------------------------------------------- tipografía y nombres propios
+
+from core.ortografia import nombres_propios, revisar_tipografia
+
+
+def _tipografia(texto):
+    doc = Document()
+    doc.add_paragraph(texto)
+    obs = Obs()
+    revisar_tipografia(list(bloques_en_orden(doc)), {}, obs)
+    return [x["observacion"] for x in obs.items]
+
+
+@pytest.mark.parametrize("texto, falta", [
+    ("durante el monzón de 2021(Nevo et al., 2022).", True),
+    ("el rango medio de Nash-Sutcliffe(NSE) por familia", True),
+    ("un modelo autorregresivo PAR(1) de primer orden", False),
+    ("la función f(x) es continua", False),
+])
+def test_falta_espacio_antes_de_parentesis(texto, falta):
+    assert any("antes de paréntesis" in o for o in _tipografia(texto)) is falta
+
+
+def test_un_nombre_propio_al_inicio_de_oracion_no_es_error():
+    """'Caravan estandarizó…' se marcaba; en otra oración aparece como 'de Caravan'"""
+    textos = [(0, "Caravan estandarizó siete conjuntos. Luego se usaron 2610 cuencas de Caravan.")]
+    assert "Caravan" in nombres_propios(textos)
+
+
+def test_identificadores_con_guion_y_mayusculas_mezcladas():
+    t = "Siguieron arquitecturas: N-HiTS, con interpolación jerárquica"
+    assert es_termino_tecnico("N", t, t.index("N-"))
+    assert es_termino_tecnico("CABra", "CABra reunió 735 cuencas", 0)
+    assert not es_termino_tecnico("Caudal", "Caudal medio anual", 0)
+
+
+def test_cita_con_autores_antes_de_et_al():
+    assert extraer_citas("Godahewa, Bandara, et al. (2021) propusieron")[0][:2] == ("godahewa", "2021")

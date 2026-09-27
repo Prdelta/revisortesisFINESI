@@ -44,3 +44,24 @@ def test_la_hoja_lleva_la_linea_de_cada_tipo_de_observacion():
 def test_sin_numero_de_linea_la_observacion_sale_igual():
     hoja = redactar([_item("Formato", "Error", "Margen izquierdo incorrecto", None)], [])
     assert "Corregir el formato del documento: márgenes" in hoja
+
+
+def test_un_final_repetido_no_manda_a_otra_parte_del_documento():
+    """
+    'mlforecast' salía en la línea 43: su fragmento terminaba igual que una frase de la
+    Justificación y se buscaba por el final. Buscando sobre el texto unido, no pasa.
+    """
+    mapa = _mapa([
+        "Los modelos estadísticos y de aprendizaje automático ofrecen otra vía.",
+        "XIV. Recursos",
+        "INFRAESTRUCTURA Y EQUIPOS",
+        "Python con las bibliotecas statsforecast y mlforecast para los",
+        "modelos estadísticos y de aprendizaje automático, neuralforecast y",
+    ])
+    ancla = "Recursos INFRAESTRUCTURA Y EQUIPOS"          # título corto + primer contenido
+    assert mapa.numero("mlforecast para los modelos estadísticos y de aprendizaje automático", ancla) == 4
+
+
+def test_el_ancla_de_varias_lineas_se_encuentra():
+    mapa = _mapa(["recursos hídricos del país", "XIV. Recursos", "INFRAESTRUCTURA Y EQUIPOS", "Computadora"])
+    assert mapa._indice_ancla("Recursos INFRAESTRUCTURA Y EQUIPOS") == 1

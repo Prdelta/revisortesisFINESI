@@ -24,7 +24,11 @@ ANIO = r"(?:\d{4}[a-z]?|s\.\s?f\.)"
 
 RE_PAREN = re.compile(r"\(([^()]*?(?:\d{4}[a-z]?|s\.\s?f\.)[^()]*)\)")
 RE_SIGLA = re.compile(r"\s*\[[^\]]+\]")   # (Ministerio de Salud [MINSA], 2020)
-RE_NARR = re.compile(rf"({AUTOR}(?:\s+et\s+al\.?|\s+(?:y|&)\s+{AUTOR})?)\s+\(({ANIO})(?:[,;][^)]*)?\)")
+# "Godahewa, Bandara, et al. (2021)": APA 7 agrega autores antes de "et al." cuando
+# dos obras del mismo primer autor y año se confundirían. La lista con comas solo se
+# acepta si termina en "et al.", para no tomar "Chile, Perú (2020)" por una cita.
+RE_NARR = re.compile(rf"({AUTOR}(?:(?:,\s+{AUTOR})+,?\s+et\s+al\.?|\s+et\s+al\.?|\s+(?:y|&)\s+{AUTOR})?)"
+                     rf"\s+\(({ANIO})(?:[,;][^)]*)?\)")
 RE_PARTE = re.compile(rf"^(?:(?:ver|véase|cf\.|p\.\s?ej\.)\s+)?(.+?),?\s+({ANIO})(?:[,:].*)?$", re.I)
 
 
@@ -108,32 +112,54 @@ def extraer_citas(texto):
 # (sobre todo Mendeley) y que el revisor observa a mano. (patrón, observación, corrección)
 DEFECTOS_REFERENCIA = [
     (re.compile(r"\bVol\.\s*\d+\s*,\s*Page\s+\d+|\bPage\s+\d+"),
-     "Referencia con datos de exportación de Mendeley ('Vol. …, Page …')",
+     "Referencia con datos de exportación de Mendeley: '{}'",
      "En APA 7: Revista, volumen(número), páginas. Ej.: Water, 13(8), 1048."),
     (re.compile(r"\b(?:19|20)\d{2}\s+\d+:\d+"),
-     "Referencia con datos de exportación del gestor ('2024 627:8004')",
+     "Referencia con datos de exportación del gestor: '{}'",
      "Quitar el texto sobrante: Revista, volumen(número), páginas."),
     (re.compile(r"(?<![A-Za-zÁÉÍÓÚáéíóú])ág[.:]"),
-     "Páginas mal escritas ('ág.' o 'ág:')",
+     "Páginas mal escritas: '{}'",
      "En APA 7 las páginas de un artículo van solas: 70-80."),
-    (re.compile(r"…|\.\.\.(?!\S*\.(?:org|com|pe|html?))"),
-     "Referencia cortada ('…')",
-     "Completar el título y los datos de la fuente."),
     (re.compile(r"(?:\b[A-ZÁÉÍÓÚÑ]{3,}\b[\s,:;()\-]+){4,}"),
-     "Título en mayúsculas",
+     "Título en mayúsculas: '{}'",
      "En APA 7 el título va en minúsculas, salvo la primera palabra y los nombres propios."),
+    (re.compile(r"\b\d+-\.(?=\s|$)"),
+     "Número de artículo con guion colgando: '{}'",
+     "Quitar el guion: 17468, no 17468-."),
 ]
+# Los puntos suspensivos son correctos en una lista de más de 20 autores (APA 7):
+# "Peled Levi, N., … Matias, Y. (2022)". Solo en otro lugar indican un texto cortado.
+CORTADA = re.compile(r"…|\.\.\.(?!\S*\.(?:org|com|pe|html?))")
+ELIPSIS_DE_AUTORES = re.compile(rf"^\s*{APELLIDO}(?:[\s\-]{APELLIDO})*,\s+(?:{MAYUSCULA}\.\s*)+")
 # Artículo con volumen(número) y sin páginas ni número de artículo: "Revista, 16(1). https://…"
 SIN_PAGINAS = re.compile(r",\s*\d+\s*\(\s*[\w\-–]+\s*\)\s*\.")
+# DOI con lo que agregan los gestores o las editoriales al copiarlo:
+# ";ISSUE:ISSUE:DOI", ";TAXONOMY:…", "/FULL", "/TEXT"
+DOI_SOBRANTE = re.compile(r"doi\.org/\S*?(;\S*|/(?:full|text|abstract|pdf)\b)", re.I)
 
 
 def defectos_de_referencia(texto):
     """[(observación, corrección)] de los defectos de forma de una referencia"""
     sin_url = re.sub(r"https?://\S+", " ", texto)
-    hallados = [(o, c) for patron, o, c in DEFECTOS_REFERENCIA if patron.search(sin_url)]
+    hallados = []
+    for patron, plantilla, correccion in DEFECTOS_REFERENCIA:
+        m = patron.search(sin_url)
+        if m:
+            hallados.append((plantilla.format(corto(m.group(0).strip(), 40)), correccion))
+    anio = re.search(r"\(\d{4}[a-z]?\)|\(s\.\s?f\.\)", sin_url)
+    for m in CORTADA.finditer(sin_url):
+        entre_autores = anio and m.start() < anio.start() and ELIPSIS_DE_AUTORES.match(sin_url[m.end():])
+        if not entre_autores:
+            hallados.append((f"Referencia cortada: '{corto(sin_url[max(0, m.start() - 25):m.end()].strip(), 40)}'",
+                             "Completar el título y los datos de la fuente."))
+            break
     if SIN_PAGINAS.search(sin_url):
         hallados.append(("Artículo sin páginas ni número de artículo",
                          "APA 7 pide el rango de páginas (45-58) o el número de artículo."))
+    m = DOI_SOBRANTE.search(texto)
+    if m:
+        hallados.append((f"DOI con texto sobrante: '{corto(m.group(1), 40)}'",
+                         "El DOI termina en el identificador: https://doi.org/10.xxxx/xxxxx"))
     return hallados
 
 

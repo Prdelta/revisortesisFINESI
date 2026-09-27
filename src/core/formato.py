@@ -99,12 +99,20 @@ def revisar_formato(doc, bloques, rangos, reglas, obs, deteccion=None):
 
     # interlineado y alineacion en parrafos de cuerpo (largos, fuera de tablas)
     inter_mal, alin_mal = [], []
+    # APA 7 quiere la lista de referencias alineada a la izquierda: no se le exige el
+    # justificado del cuerpo salvo que las reglas lo pidan (justificar_referencias: true)
+    sin_justificar = set()
+    if not f.get("justificar_referencias", False):
+        sec_ref = (reglas.get("citas") or {}).get("seccion_referencias", "Referencias")
+        if sec_ref in rangos:
+            sin_justificar = set(range(*rangos[sec_ref]))
     for i, b in enumerate(bloques):
         if not isinstance(b, Paragraph) or len(b.text.strip()) < 120:
             continue
         if abs(est.interlineado(b) - f["interlineado"]) > 0.05:
             inter_mal.append((i, est.interlineado(b), b.text))
-        if f["alineacion_cuerpo"] == "justificado" and est.alineacion(b) != WD_ALIGN_PARAGRAPH.JUSTIFY:
+        if f["alineacion_cuerpo"] == "justificado" and i not in sin_justificar \
+                and est.alineacion(b) != WD_ALIGN_PARAGRAPH.JUSTIFY:
             alin_mal.append((i, b.text))
     if inter_mal:
         obs.add("Formato", "Error", juntar([ubic(i, rangos, bloques, t, 30) for i, _, t in inter_mal[:4]]),

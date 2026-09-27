@@ -51,3 +51,26 @@ def test_que_es_una_nota_de_tabla():
     assert es_nota_de_tabla("Nota. AA = aprendizaje automático")
     assert es_nota_de_tabla("Fuente: INEI (2020)")
     assert not es_nota_de_tabla("La nota promedio de los estudiantes fue 14")
+
+
+def _justificado(justificar_referencias):
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    doc = Document()
+    doc.add_paragraph("Texto del cuerpo, justificado como pide la plantilla. " * 5).alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+    doc.add_paragraph("Referencias")
+    doc.add_paragraph("Apaza, L. (2019). Anemia infantil en zonas altoandinas del sur del Perú y sus "
+                      "determinantes sociales y económicos. Revista Peruana, 12(3), 45-58.")
+    bloques = list(bloques_en_orden(doc))
+    reglas = cargar_reglas("proyecto")
+    reglas["formato"] = dict(reglas["formato"], justificar_referencias=justificar_referencias)
+    obs = Obs()
+    revisar_formato(doc, bloques, {"Referencias": (1, len(bloques))}, reglas, obs, ([], [], []))
+    return [x["observacion"] for x in obs.items if "justificar" in x["observacion"]]
+
+
+def test_las_referencias_alineadas_a_la_izquierda_no_se_observan():
+    assert _justificado(False) == []
+
+
+def test_si_las_reglas_lo_piden_se_exige_el_justificado_en_referencias():
+    assert _justificado(True) != []

@@ -16,8 +16,8 @@ Citas | Error | Referencias | Referencias no están en orden alfabético
 Citas | Error | Justificación del proyecto: 'Mamani y Quispe (2020)' | Cita sin referencia: 'Mamani y Quispe (2020)'
 Citas | Error | Antecedentes del proyecto: 'Collings et al., 2016' | Cita sin referencia: 'Collings et al., 2016'
 Citas | Advertencia | Referencias: 'Bland, J. M., & Altman, D. G. (1986). St...' | DOI con formato antiguo
-Ortografía | Advertencia | Resumen del proyecto de tesis: '...ra de 200 niños ,comparando las' | Espacio antes de signo de puntuación (1 caso(s))
-Ortografía | Advertencia | Justificación del proyecto: '...rollo cognitivo. Mamani y Quispe' | Doble espacio entre palabras (1 caso(s))
-Ortografía | Revisar | Ver el detalle al final del documento | 7 posible(s) error(es) de ortografía o gramática
+Ortografía | Advertencia | Resumen del proyecto de tesis: '...ños ,comparando las estimaciones' | Espacio antes de signo de puntuación (1 caso(s))
+Ortografía | Advertencia | Justificación del proyecto: '...ivo. Mamani y Quispe (2020) repor' | Doble espacio entre palabras (1 caso(s))
+Ortografía | Revisar | Ver el detalle al final del documento | 6 posible(s) error(es) de ortografía o gramática
 Revisor | Error | Documento | En anexos, incluir matriz de consistencia
 Revisor | Error | Antecedentes del proyecto | Incrementar número de citas (antecedentes)

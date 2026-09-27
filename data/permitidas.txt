@@ -225,3 +225,8 @@ hiperparámetros
 ablación
 scipy
 lightgbm
+univariados
+univariadas
+perceptrón
+perceptrones
+multihorizonte

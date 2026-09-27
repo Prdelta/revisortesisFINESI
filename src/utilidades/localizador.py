@@ -13,6 +13,7 @@ import subprocess
 import sys
 import tempfile
 import unicodedata
+from bisect import bisect_right
 
 
 def _norm(t):
@@ -49,34 +50,55 @@ class MapaLineas:
             return f"línea {numero}" if self.paginas == 1 else f"pág. {pagina}, línea {numero}"
         return f"pág. {pagina}, línea {numero} (contada desde el inicio de la página)"
 
+    def _texto_unido(self):
+        """
+        Todas las líneas pegadas en un solo texto, con el comienzo de cada una. Buscar
+        ahí hace que un salto de línea del PDF no importe: antes, un fragmento partido
+        entre dos líneas no se encontraba, y buscar trozos sueltos acertaba en otra frase
+        igual de otra parte del documento.
+        """
+        if not hasattr(self, "_unido"):
+            inicios, total = [], 0
+            for _, _, apretado, _ in self.lineas:
+                inicios.append(total)
+                total += len(apretado)
+            self._unido = "".join(apretado for _, _, apretado, _ in self.lineas)
+            self._inicios = inicios
+        return self._unido, self._inicios
+
+    def _linea_en(self, posicion):
+        _, inicios = self._texto_unido()
+        return max(0, bisect_right(inicios, posicion) - 1)
+
     def _indice_ancla(self, ancla):
         """posicion en la lista de lineas donde empieza la seccion, para no confundir textos repetidos"""
         if not ancla:
             return 0
-        clave = _apretar(ancla)[:40]
+        clave = _apretar(ancla)[:30]
         if len(clave) < 6:
             return 0
-        for k, (_, numero, apretado, _t) in enumerate(self.lineas):
-            if numero is not None and clave[:30] in apretado:
-                return k
-        return 0
+        unido, _ = self._texto_unido()
+        pos = unido.find(clave)
+        return self._linea_en(pos) if pos >= 0 else 0
 
     def _posiciones(self, texto, desde=0):
         clave = _apretar(texto)
-        if len(clave) < 8:
+        if len(clave) < 8 or not self.lineas:
             return []
-        # también el final: si el fragmento cruza un salto de línea del PDF, su comienzo
-        # no aparece entero en ninguna línea, pero el final sí
-        for trozo in (clave[:40], clave[:22], clave[-22:], clave[:12], clave[-12:]):
+        unido, inicios = self._texto_unido()
+        base = inicios[desde] if desde < len(inicios) else len(unido)
+        for trozo in (clave[:40], clave[:22], clave[:12]):
             if len(trozo) < 8:
                 break
-            hallados = [k for k in range(desde, len(self.lineas))
-                        if self.lineas[k][1] is not None and trozo in self.lineas[k][2]]
+            hallados, pos = [], unido.find(trozo, base)
+            while pos >= 0:
+                k = self._linea_en(pos)
+                if not hallados or hallados[-1] != k:
+                    hallados.append(k)
+                pos = unido.find(trozo, pos + 1)
             if hallados:
                 return hallados
-        # el texto puede abarcar varias lineas: se busca una linea contenida en el texto
-        return [k for k in range(desde, len(self.lineas))
-                if self.lineas[k][1] is not None and len(self.lineas[k][2]) > 20 and self.lineas[k][2] in clave]
+        return []
 
     def numero(self, texto, ancla=None):
         """solo el numero de linea (int) o None"""

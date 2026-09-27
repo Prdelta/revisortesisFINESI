@@ -81,7 +81,7 @@ def _frase(numero, texto, varias=True):
 CITA_TEXTO = ("Cita sin referencia", "'et al", "Cita sin coma", "citas numéricas")
 REFERENCIA = ("Referencia sin año", "sangría francesa", "orden alfabético", "DOI", "Referencia no citada",
               "no tiene entradas", "Referencia con datos", "Referencia cortada", "Título en mayúsculas",
-              "Páginas mal escritas", "Artículo sin páginas")
+              "Páginas mal escritas", "Artículo sin páginas", "Número de artículo")
 
 
 def redactar(items, filas_orto, extras=(), tipo="proyecto"):

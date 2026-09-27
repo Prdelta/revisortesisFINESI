@@ -10,7 +10,9 @@ formato:
   margenes_cm: {izquierdo: 3.0, derecho: 2.0, superior: 2.5, inferior: 2.0}
   tolerancia_margen_cm: 0.1
   fuente: Arial
-  tamano_pt: 10
+  tamano_pt: 10
+  tamano_tablas_pt: 9             # tablas y sus notas (Nota., Fuente:) pueden ir en este tamaño.
+                                  # APA lo admite. CONFIRMAR con la Dirección; null = exigir tamano_pt.
   interlineado: 1.0
   alineacion_cuerpo: justificado
   tolerancia_fuera_de_norma: 0.03
@@ -25,6 +27,19 @@ extension:
   titulo_max_palabras: null
   seccion_palabras_clave: "Palabras claves"
   palabras_clave_max: null
+
+# Informe de similitud de Turnitin: el PDF que el tesista adjunta al proyecto.
+# CONFIRMAR los topes con el reglamento de la FINESI antes de usarlos: son decision
+# de la Direccion de Investigacion, no del programa.
+similitud:
+  max_pct: 25                  # indice de similitud maximo admitido (null = no se revisa)
+  margen_alerta_pct: 5         # avisa cuando el indice queda a menos de esto del tope
+  max_fuente_pct: 10           # lo maximo que puede aportar una sola fuente
+  max_ia_pct: null             # texto detectado como generado por IA (null = no se revisa)
+  filtros_exigidos: []         # ["bibliografia", "citas"] si el informe debe excluirlos al medir
+  max_antiguedad_dias: null    # antiguedad maxima del informe en dias (null = no se revisa)
+  tolerancia_palabras_pct: 15  # diferencia admitida entre el .docx y lo que midio Turnitin
+  exigir_informe: false        # true = observar los documentos que llegan sin informe
 
 # Esquema en orden. En 'alias' van otras formas validas de titular la seccion.
 # Los alias vienen propuestos; agrega los que veas en la practica y borra los que no apliquen.

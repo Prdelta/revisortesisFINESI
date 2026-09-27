@@ -213,6 +213,8 @@ def escribir_word(ruta_salida, datos, obs_items, filas_orto, motor, resumen_cate
               ("Presentación", datos.get("fecha_subida")),
               ("Archivo", datos.get("archivo")),
               ("Revisión", datos.get("fecha_revision"))]
+    if datos.get("similitud"):
+        campos.insert(5, ("Turnitin", datos["similitud"]))
     t = doc.add_table(rows=0, cols=2)
     t.alignment = WD_TABLE_ALIGNMENT.CENTER
     for etiqueta, valor in campos:
@@ -236,7 +238,8 @@ def escribir_word(ruta_salida, datos, obs_items, filas_orto, motor, resumen_cate
     if detalle:
         parrafo(doc, detalle, False, 8, SUAVE, despues=6)
 
-    parrafo(doc, "Observaciones generadas automáticamente sobre formato, estructura, citas y ortografía. "
+    parrafo(doc, "Observaciones generadas automáticamente sobre formato, estructura, citas, similitud "
+                 "y ortografía. "
                  "Requieren validación del revisor antes de ser comunicadas al tesista.",
             False, 8, SUAVE, cursiva=True, despues=10)
 
@@ -244,7 +247,7 @@ def escribir_word(ruta_salida, datos, obs_items, filas_orto, motor, resumen_cate
     p = parrafo(doc, "OBSERVACIONES", True, 9.5, ACENTO, antes=6, despues=4, espaciado=1.0)
     regla(p, 6, ACENTO)
     if mapa is not None and not mapa:
-        parrafo(doc, "No se pudo determinar página y línea (LibreOffice no está instalado). "
+        parrafo(doc, "No se pudo determinar página y línea (hace falta Microsoft Word o LibreOffice). "
                      "Se indica la sección y el texto de referencia.", False, 8, SUAVE, cursiva=True)
 
     anchos = [Cm(0.8), Cm(1.9), Cm(2.2), Cm(3.7), Cm(4.0), Cm(4.0)]

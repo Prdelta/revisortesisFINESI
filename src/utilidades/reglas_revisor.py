@@ -40,6 +40,23 @@ def cargar(ruta):
     return [r for r in reglas if isinstance(r, dict) and r.get("observacion") and r.get("activa", True)], None
 
 
+def _celdas_unicas(tabla):
+    """
+    Celdas de una tabla, cada una una sola vez. row.cells repite la celda combinada una
+    vez por columna que abarca, y así el texto de un encabezado combinado contaba doble
+    o triple al medir palabras y citas de una sección.
+
+    Está duplicado a propósito con core.utils.celdas_unicas: 'utilidades' no importa de
+    'core' (las dependencias van en la otra dirección) y son cuatro líneas.
+    """
+    vistas = set()
+    for fila in tabla.rows:
+        for celda in fila.cells:
+            if celda._tc not in vistas:
+                vistas.add(celda._tc)
+                yield celda
+
+
 def _texto_de(bloques, rangos, donde, Paragraph, Table):
     """(texto, indice del primer bloque) del ámbito pedido"""
     if not donde or _norm(donde) in ("documento", "todo", "todo el documento"):
@@ -53,7 +70,7 @@ def _texto_de(bloques, rangos, donde, Paragraph, Table):
         if isinstance(b, Paragraph):
             partes.append(b.text)
         elif isinstance(b, Table):
-            partes += [c.text for f in b.rows for c in f.cells]
+            partes += [c.text for c in _celdas_unicas(b)]
     return "\n".join(partes), ini
 
 

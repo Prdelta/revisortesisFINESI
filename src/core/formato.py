@@ -9,7 +9,12 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.text.paragraph import Paragraph
 
 from .estructura import detectar_secciones
-from .utils import Estilos, juntar, norm, ubic
+from .utils import Estilos, celdas_unicas, juntar, norm, ubic
+
+
+def es_nota_de_tabla(texto):
+    """la nota o la fuente que va debajo de una tabla o figura en APA"""
+    return re.match(r"\s*(nota[.:]|fuente[.:]|elaboraci[oó]n propia)", texto, re.I) is not None
 
 
 def revisar_formato(doc, bloques, rangos, reglas, obs, deteccion=None):
@@ -40,20 +45,25 @@ def revisar_formato(doc, bloques, rangos, reglas, obs, deteccion=None):
     fuentes, tamanos = Counter(), Counter()
     ejemplos_f, ejemplos_t = defaultdict(list), defaultdict(list)
     total = 0
-    parrafos = []
+    parrafos = []   # (índice del bloque, párrafo, ¿es de una tabla o de su nota?)
     for i, b in enumerate(bloques):
         if isinstance(b, Paragraph):
-            parrafos.append((i, b))
+            parrafos.append((i, b, es_nota_de_tabla(b.text)))
         else:
-            for fila in b.rows:
-                for c in fila.cells:
-                    for p in c.paragraphs:
-                        parrafos.append((i, p))
+            # una celda combinada aparece una vez por columna que abarca: si se la cuenta
+            # repetida, su texto pesa el doble o el triple en los porcentajes de fuente y
+            # tamano, que son los que deciden si es Error o Advertencia
+            for c in celdas_unicas(b):
+                for p in c.paragraphs:
+                    parrafos.append((i, p, True))
+    # APA admite un tamaño menor en tablas y notas; si las reglas lo fijan, ese tamaño
+    # también vale ahí (antes toda tabla en 9 pt salía como Error de formato)
+    tamano_tablas = f.get("tamano_tablas_pt")
     # la detección ya viene calculada desde el orquestador; recalcularla era
     # repetir una pasada difusa O(párrafos × alias) sobre todo el documento
     todos = (deteccion or detectar_secciones(bloques, reglas))[1]
     titulos = {i for i, _ in todos}
-    for i, p in parrafos:
+    for i, p, de_tabla in parrafos:
         es_titulo = i in titulos or re.search(r"(heading|t[ií]tulo)\s*\d", (p.style.name or "").lower()) is not None
         for r in p.runs:
             n = len(r.text.strip())
@@ -61,6 +71,8 @@ def revisar_formato(doc, bloques, rangos, reglas, obs, deteccion=None):
                 continue
             fu = est.fuente(r, p) or "?"
             ta = est.tamano(r, p)
+            if de_tabla and tamano_tablas and abs(ta - tamano_tablas) <= 0.1:
+                ta = f["tamano_pt"]
             fuentes[fu] += n
             total += n
             if es_titulo:

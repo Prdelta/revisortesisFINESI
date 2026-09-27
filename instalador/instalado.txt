@@ -1,0 +1,5 @@
+Este archivo lo deja el instalador. Mientras exista, el Revisor de Tesis guarda sus
+datos (reglas, registro.csv, reportes y configuración) en Documentos\Revisor de Tesis FINESI,
+porque en la carpeta de instalación Windows no deja escribir.
+
+Sin este archivo el programa funciona en modo portable: guarda sus datos junto al .exe.

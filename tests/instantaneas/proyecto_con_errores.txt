@@ -1,0 +1,23 @@
+Estructura | Error | Documento | Falta la sección 'Localización del proyecto'
+Estructura | Error | Presupuesto | La tabla de 'Presupuesto' está vacía o casi vacía
+Formato | Error | Hipótesis del trabajo: 'Hipótesis del trabajo (Es el aporte proyectado de ...' | Quedó texto guía de la plantilla sin borrar
+Formato | Error | Sección de página 1 | Margen izquierdo incorrecto
+Formato | Error | Justificación del proyecto: 'La anemia infantil sigue siendo un probl...' | Texto en fuente 'Times New Roman' (12.6% del documento)
+Formato | Error | Antecedentes del proyecto: 'La anemia infantil sigue siend...' | Interlineado distinto de 1.0 en 1 párrafo(s)
+Formato | Advertencia | Cronograma de actividades (tabla): 'Revisión bibliográfica'; 'X'; 'Recolección de datos' | Texto en fuente 'Courier New' (1.8% del documento)
+Formato | Advertencia | Cronograma de actividades (tabla): 'Revisión bibliográfica'; 'X'; 'Recolección de datos' | Texto en tamaño 12 pt (2.0% del documento)
+Extensión | Error | Título | El título tiene 34 palabras, máximo 25
+Extensión | Error | Palabras claves | Tiene 7 palabras clave, máximo 5
+Citas | Error | Resumen del proyecto de tesis: 'la hemoglobina capilar (Pérez et al 2021...' | 'et al' sin punto
+Citas | Error | Documento | Se encontraron 1 citas numéricas tipo [1]
+Citas | Error | Referencias: 'Torres, K. Análisis de imágenes médicas. Editorial...' | Referencia sin año entre paréntesis
+Citas | Error | Referencias | 5 de 5 referencias sin sangría francesa
+Citas | Error | Referencias | Referencias no están en orden alfabético
+Citas | Error | Justificación del proyecto: 'Mamani y Quispe (2020)' | Cita sin referencia: 'Mamani y Quispe (2020)'
+Citas | Error | Antecedentes del proyecto: 'Collings et al., 2016' | Cita sin referencia: 'Collings et al., 2016'
+Citas | Advertencia | Referencias: 'Bland, J. M., & Altman, D. G. (1986). St...' | DOI con formato antiguo
+Ortografía | Advertencia | Resumen del proyecto de tesis: '...ra de 200 niños ,comparando las' | Espacio antes de signo de puntuación (1 caso(s))
+Ortografía | Advertencia | Justificación del proyecto: '...rollo cognitivo. Mamani y Quispe' | Doble espacio entre palabras (1 caso(s))
+Ortografía | Revisar | Ver el detalle al final del documento | 7 posible(s) error(es) de ortografía o gramática
+Revisor | Error | Documento | En anexos, incluir matriz de consistencia
+Revisor | Error | Antecedentes del proyecto | Incrementar número de citas (antecedentes)

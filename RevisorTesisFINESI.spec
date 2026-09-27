@@ -28,16 +28,19 @@ datos += collect_data_files("docx")
 datos += collect_data_files("spylls")
 lt_datos, lt_bin, lt_ocultos = collect_all("language_tool_python")
 datos += lt_datos
+# arrastrar y soltar: tkinterdnd2 trae la extensión tkdnd (DLL y .tcl) en su carpeta
+dnd_datos, dnd_bin, dnd_ocultos = collect_all("tkinterdnd2")
+datos += dnd_datos
 
-ocultos = lt_ocultos + [
+ocultos = lt_ocultos + dnd_ocultos + [
     "docx", "openpyxl", "yaml", "rapidfuzz", "spylls", "spylls.hunspell", "pypdf",
-    "ttkbootstrap"
+    "ttkbootstrap", "tkinterdnd2", "PIL.ImageTk"
 ]
 
 a = Analysis(
     ["src/app.py"],
     pathex=["src"],
-    binaries=lt_bin,
+    binaries=lt_bin + dnd_bin,
     datas=datos,
     hiddenimports=ocultos,
     hookspath=[],

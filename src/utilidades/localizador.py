@@ -1,7 +1,8 @@
 """
 Localiza en qué página y línea del documento está cada observación.
 
-Convierte el .docx a PDF con LibreOffice y lee el texto con posiciones. Si la plantilla
+Convierte el .docx a PDF y lee el texto con posiciones. En Windows se usa Word, que
+compagina igual que lo que ve el tesista; si no hay Word, LibreOffice. Si la plantilla
 tiene activada la numeración de líneas de Word (la del proyecto la tiene), se usan esos
 mismos números, que son los que el tesista ve en el margen de su documento.
 Si no la tiene, se cuentan las líneas desde el inicio de cada página.
@@ -9,6 +10,7 @@ Si no la tiene, se cuentan las líneas desde el inicio de cada página.
 import os
 import re
 import subprocess
+import sys
 import tempfile
 import unicodedata
 
@@ -26,7 +28,8 @@ def _apretar(t):
 class MapaLineas:
     """lineas = [(pagina, numero_de_linea, texto_apretado, texto)]"""
 
-    def __init__(self, lineas, paginas, numeradas, metodo):
+    def __init__(self, lineas, paginas, numeradas, metodo, motor=""):
+        self.motor = motor          # "Word" o "LibreOffice": con qué se generó el PDF
         self.lineas = lineas
         self.paginas = paginas
         self.numeradas = numeradas
@@ -62,7 +65,9 @@ class MapaLineas:
         clave = _apretar(texto)
         if len(clave) < 8:
             return []
-        for trozo in (clave[:40], clave[:22], clave[:12]):
+        # también el final: si el fragmento cruza un salto de línea del PDF, su comienzo
+        # no aparece entero en ninguna línea, pero el final sí
+        for trozo in (clave[:40], clave[:22], clave[-22:], clave[:12], clave[-12:]):
             if len(trozo) < 8:
                 break
             hallados = [k for k in range(desde, len(self.lineas))
@@ -104,25 +109,81 @@ def _buscar_soffice():
     return None
 
 
+def hay_word():
+    """¿está instalado Microsoft Word? (su servidor COM está registrado)"""
+    if not sys.platform.startswith("win"):
+        return False
+    try:
+        import winreg
+        winreg.CloseKey(winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, r"Word.Application\CLSID"))
+        return True
+    except OSError:
+        return False
+
+
+# Exporta a PDF con una instancia de Word propia, invisible, que se cierra al terminar:
+# el Word que el revisor tenga abierto no se toca. El documento se abre en solo
+# lectura y con las macros desactivadas. Las rutas llegan por variables de entorno
+# para no tener que escapar comillas ni espacios.
+SCRIPT_WORD = r"""
+$ErrorActionPreference = 'Stop'
+$w = New-Object -ComObject Word.Application
+try {
+    $w.Visible = $false
+    $w.DisplayAlerts = 0
+    $w.AutomationSecurity = 3
+    $d = $w.Documents.Open($env:RT_DOCX, $false, $true, $false)
+    try { $d.ExportAsFixedFormat($env:RT_PDF, 17) } finally { $d.Close($false) }
+} finally {
+    $w.Quit()
+    [void][Runtime.InteropServices.Marshal]::ReleaseComObject($w)
+}
+"""
+
+
+def _pdf_con_word(ruta_docx, pdf):
+    entorno = dict(os.environ, RT_DOCX=os.path.abspath(ruta_docx), RT_PDF=os.path.abspath(pdf))
+    subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+                    "-Command", SCRIPT_WORD], env=entorno, capture_output=True, timeout=240,
+                   creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    return os.path.exists(pdf)
+
+
+def _pdf_con_libreoffice(soffice, ruta_docx, tmp):
+    subprocess.run([soffice, "--headless", "--convert-to", "pdf", "--outdir", tmp, ruta_docx],
+                   capture_output=True, timeout=240,
+                   creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    pdf = os.path.join(tmp, os.path.splitext(os.path.basename(ruta_docx))[0] + ".pdf")
+    return pdf if os.path.exists(pdf) else None
+
+
 RE_NUMERO = re.compile(r"^\s*(\d{1,4})\s{2,}(\S.*)$")
 
 
 def construir(ruta_docx):
-    """devuelve MapaLineas; vacio si no hay LibreOffice o falla la conversion"""
+    """devuelve MapaLineas; vacio si no hay Word ni LibreOffice o falla la conversion"""
     soffice = _buscar_soffice()
-    if not soffice:
-        return MapaLineas([], None, False, "sin LibreOffice")
+    word = hay_word()
+    if not word and not soffice:
+        return MapaLineas([], None, False, "sin Word ni LibreOffice")
     try:
         from pypdf import PdfReader
     except ImportError:
         return MapaLineas([], None, False, "falta pypdf")
     try:
-        with tempfile.TemporaryDirectory() as tmp:
-            subprocess.run([soffice, "--headless", "--convert-to", "pdf", "--outdir", tmp, ruta_docx],
-                           capture_output=True, timeout=240)
-            pdf = os.path.join(tmp, os.path.splitext(os.path.basename(ruta_docx))[0] + ".pdf")
-            if not os.path.exists(pdf):
-                return MapaLineas([], None, False, "LibreOffice no generó el PDF")
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
+            pdf, motor = None, ""
+            if word:
+                destino = os.path.join(tmp, "documento.pdf")
+                try:
+                    if _pdf_con_word(ruta_docx, destino):
+                        pdf, motor = destino, "Word"
+                except Exception:
+                    pass   # Word falló (licencia, documento protegido): se intenta LibreOffice
+            if pdf is None and soffice:
+                pdf, motor = _pdf_con_libreoffice(soffice, ruta_docx, tmp), "LibreOffice"
+            if pdf is None:
+                return MapaLineas([], None, False, "no se pudo generar el PDF")
             lector = PdfReader(pdf)
             paginas = len(lector.pages)
             crudo = []
@@ -136,8 +197,8 @@ def construir(ruta_docx):
         return MapaLineas([], None, False, "error al convertir")
 
     # ¿el documento trae numeración de líneas de Word en el margen?
-    con_numero = sum(1 for _, ls in crudo for l in ls if RE_NUMERO.match(l))
-    con_texto = sum(1 for _, ls in crudo for l in ls if l.strip())
+    con_numero = sum(1 for _, ls in crudo for x in ls if RE_NUMERO.match(x))
+    con_texto = sum(1 for _, ls in crudo for x in ls if x.strip())
     numeradas = con_texto and con_numero / con_texto > 0.5
 
     # encabezado y pie se repiten en cada pagina y LibreOffice tambien los numera: se descartan
@@ -154,25 +215,26 @@ def construir(ruta_docx):
     lineas = []
     for pagina, ls in crudo:
         contador = 0
-        for l in ls:
+        for linea in ls:
             if numeradas:
-                m = RE_NUMERO.match(l)
+                m = RE_NUMERO.match(linea)
                 if not m:
                     continue
                 numero, texto = int(m.group(1)), m.group(2)
                 if _apretar(texto) in repetidos:
                     continue
             else:
-                if not l.strip():
+                if not linea.strip():
                     continue
-                if _apretar(l) in repetidos:
+                if _apretar(linea) in repetidos:
                     continue
                 contador += 1
-                numero, texto = contador, l.strip()
+                numero, texto = contador, linea.strip()
             lineas.append((pagina, numero, _apretar(texto), texto.strip()))
     lineas = _depurar(lineas)
     return MapaLineas(lineas, paginas, bool(numeradas),
-                      "numeración de líneas del documento" if numeradas else "conteo de líneas por página")
+                      "numeración de líneas del documento" if numeradas else "conteo de líneas por página",
+                      motor)
 
 
 def _depurar(lineas):

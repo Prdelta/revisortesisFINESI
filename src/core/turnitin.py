@@ -341,9 +341,10 @@ AGREGADOS = tuple(et for grupo in ETIQUETAS.values() for et in grupo) + (
 # En el informe clásico, la fuente ocupa dos líneas: el nombre arriba y debajo el
 # tipo con el porcentaje. Si en la línea del porcentaje solo está el tipo, el nombre
 # hay que ir a buscarlo a la de arriba.
+# En singular a propósito: "Publicaciones" o "Trabajos entregados" en plural son los
+# totales del cuadro de arriba, no el tipo de una fuente de la lista.
 TIPOS_FUENTE = ("fuente de internet", "internet source", "publicacion", "publication",
-                "trabajo del estudiante", "student paper", "submitted works", "internet",
-                "trabajo entregado", "trabajos entregados", "publicaciones")
+                "trabajo del estudiante", "student paper", "internet", "trabajo entregado")
 
 
 def _limpiar_fuente(texto):
@@ -367,7 +368,10 @@ def _fuentes(paginas, tope):
             if tope is not None and valor > tope + 0.001:
                 continue        # una sola fuente no puede pasar el total
             nombre = _limpiar_fuente(RE_PORCENTAJE.sub(" ", linea))
-            if _plano(nombre).strip(" .:,") in TIPOS_FUENTE and previa.strip():
+            # la línea de arriba solo es el nombre de la fuente si no trae su propio
+            # porcentaje: si lo trae, es otra fuente o una fila del cuadro de totales
+            if (_plano(nombre).strip(" .:,") in TIPOS_FUENTE
+                    and previa.strip() and not RE_PORCENTAJE.search(previa)):
                 tipo, nombre = nombre, _limpiar_fuente(previa)
                 if len(nombre) > 3:
                     nombre = f"{nombre} ({tipo.lower()})"

@@ -9,6 +9,7 @@ from collections import defaultdict
 
 from docx.text.paragraph import Paragraph
 
+from . import config
 from .config import ruta_recurso
 from .citas import RE_NARR, RE_PAREN
 from .utils import corto, juntar, ubic
@@ -18,7 +19,41 @@ def cargar_permitidas(ruta):
     if not ruta or not os.path.exists(ruta):
         return set()
     with open(ruta, encoding="utf8") as fh:
-        return {l.strip().lower() for l in fh if l.strip() and not l.startswith("#")}
+        return {x.strip().lower() for x in fh if x.strip() and not x.startswith("#")}
+
+
+# Locuciones latinas usuales en una tesis: sus palabras sueltas ("hoc", "priori")
+# no están en el diccionario y se marcaban en cada aparición.
+LOCUCIONES = ("post hoc", "ad hoc", "a priori", "a posteriori", "in situ", "per se",
+              "ex ante", "ex post", "sui generis", "grosso modo", "et al")
+
+
+def es_termino_tecnico(palabra, texto, pos):
+    """
+    ¿La palabra es algo que un corrector no debería marcar en una tesis técnica?
+    Versiones (v1.0), siglas (ETS, TFT), identificadores de código (SeasonalNaive,
+    PISCO_HyM_GR2M), locuciones latinas (post hoc) y la 't' de "prueba t". Antes cada
+    uno salía como error de ortografía y tapaba los errores reales de la lista.
+    """
+    p = palabra.strip()
+    if not p:
+        return False
+    if re.fullmatch(r"v?\d+(?:\.\d+)+[a-z]?", p, re.I):
+        return True                                   # v1.0, 2.3.1
+    if p.isupper() and 2 <= len(p) <= 6:
+        return True                                   # sigla
+    if re.search(r"[a-z][A-Z]|[_\d]", p):
+        return True                                   # camelCase, snake_case, con dígitos
+    bajo = texto.lower()
+    for loc in LOCUCIONES:
+        # \s también cubre el espacio de no separación que Word pone en "post hoc"
+        patron = r"\b" + r"\s+".join(map(re.escape, loc.split())) + r"\b"
+        for m in re.finditer(patron, bajo):
+            if m.start() <= pos < m.end():
+                return True
+    if len(p) == 1 and re.search(r"(prueba|estad[ií]stico|distribuci[oó]n|test)\s+$", bajo[:pos]):
+        return True                                   # prueba t, estadístico F
+    return False
 
 
 def revisar_tipografia(bloques, rangos, obs):
@@ -68,6 +103,8 @@ def _languagetool(tool, textos, permitidas):
             frag = t[m.offset:m.offset + largo]
             if any(a <= m.offset < b for a, b in excluir) or frag.lower() in permitidas:
                 continue
+            if tipo == "misspelling" and es_termino_tecnico(frag, t, m.offset):
+                continue
             if tipo == "misspelling" and frag[:1].isupper() and m.offset > 0 and not re.search(r"[.!?:]\s*$", t[:m.offset]):
                 continue  # probable nombre propio
             if "WHITESPACE" in regla:
@@ -96,9 +133,9 @@ def ortografia_hunspell(textos, permitidas, ruta_dic):
         palabras = re.finditer(r"[A-Za-zÁÉÍÓÚÑÜáéíóúñü]+", limpio)
         for m in palabras:
             w = m.group(0)
-            if len(w) < 3 or w.isupper() or w.lower() in permitidas:
-                continue
             ini = m.start()
+            if len(w) < 3 or w.isupper() or w.lower() in permitidas or es_termino_tecnico(w, limpio, ini):
+                continue
             inicio_oracion = ini == 0 or re.search(r"[.!?:]\s*$", limpio[:ini]) is not None
             if w[0].isupper() and not inicio_oracion:
                 continue  # probable nombre propio
@@ -128,7 +165,11 @@ def revisar_ortografia(bloques, rangos, reglas, obs, filas_orto):
             omitir.update(range(*rangos[n]))
     textos = [(i, b.text) for i, b in enumerate(bloques)
               if isinstance(b, Paragraph) and b.text.strip() and i not in omitir]
-    permitidas = cargar_permitidas(ruta_recurso(o.get("palabras_permitidas", "permitidas.txt")))
+    # La lista que trae el programa más la que edita el revisor desde la app (en la
+    # carpeta de datos). Antes solo se leía la primera: en el .exe, lo que el revisor
+    # agregaba con el botón "Palabras permitidas" nunca se aplicaba.
+    nombre = o.get("palabras_permitidas", "permitidas.txt")
+    permitidas = cargar_permitidas(ruta_recurso(nombre)) | cargar_permitidas(os.path.join(config.DATOS, nombre))
 
     resultados, motor = None, None
     modo = o.get("motor", "auto")

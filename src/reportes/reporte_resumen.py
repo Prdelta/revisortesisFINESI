@@ -80,7 +80,8 @@ def _frase(numero, texto, varias=True):
 
 CITA_TEXTO = ("Cita sin referencia", "'et al", "Cita sin coma", "citas numéricas")
 REFERENCIA = ("Referencia sin año", "sangría francesa", "orden alfabético", "DOI", "Referencia no citada",
-              "no tiene entradas")
+              "no tiene entradas", "Referencia con datos", "Referencia cortada", "Título en mayúsculas",
+              "Páginas mal escritas", "Artículo sin páginas")
 
 
 def redactar(items, filas_orto, extras=(), tipo="proyecto"):
@@ -93,9 +94,20 @@ def redactar(items, filas_orto, extras=(), tipo="proyecto"):
 
     if esquema:
         obs.append(f"Revisar y cumplir el esquema de {tipo} de tesis PGI")
-    if [x for x in formato if x not in guia]:
-        detalle = ", ".join(sorted({_que_formato(x["observacion"]) for x in formato if x not in guia}))
-        obs.append(f"Corregir el formato del documento: {detalle}")
+    de_formato = [x for x in formato if x not in guia]
+    if de_formato:
+        detalle = ", ".join(sorted({_que_formato(x["observacion"]) for x in de_formato}))
+        obs.append(_frase(_linea_de(de_formato, lambda x: True),
+                          f"corregir el formato del documento: {detalle}"))
+
+    # títulos de sección cortados o distintos a la plantilla: uno por uno, con su línea
+    for x in items:
+        if x["categoria"] == "Estructura" and "Título de sección incompleto" in x["observacion"]:
+            obs.append(_frase(x.get("nlinea"), f"completar el título de la sección: debe decir "
+                                               f"«{x['ubicacion']}»", varias=False))
+        elif x["categoria"] == "Estructura" and "Título distinto" in x["observacion"]:
+            obs.append(_frase(x.get("nlinea"), f"titular la sección como indica el esquema: "
+                                               f"«{x['ubicacion']}»", varias=False))
     if guia:
         n = _linea_de(guia, lambda x: True)
         obs.append(_frase(n, "eliminar el texto guía de la plantilla que quedó sin borrar",
@@ -107,10 +119,13 @@ def redactar(items, filas_orto, extras=(), tipo="proyecto"):
     if n or _cuantas(items, lambda x: x["categoria"] == "Citas" and any(c in x["observacion"] for c in CITA_TEXTO)):
         obs.append(_frase(n, "corregir la forma de citar, estilo APA 7ª ed"))
 
-    if filas_orto:
-        nums = sorted(f["nlinea"] for f in filas_orto if f.get("nlinea"))
+    # la tipografía (doble espacio, espacio antes de signo) entra en la misma línea
+    tipografia = [x for x in items if x["categoria"] == "Ortografía" and x["severidad"] == "Advertencia"]
+    if filas_orto or tipografia:
+        nums = sorted([f["nlinea"] for f in filas_orto if f.get("nlinea")] +
+                      [x["nlinea"] for x in tipografia if x.get("nlinea")])
         obs.append(_frase(nums[0] if nums else None, "corregir ortografía y gramática",
-                          varias=len(filas_orto) > 1))
+                          varias=len(filas_orto) + len(tipografia) > 1))
 
     n = _linea_de(items, lambda x: x["categoria"] == "Citas" and any(c in x["observacion"] for c in REFERENCIA))
     if n or _cuantas(items, lambda x: x["categoria"] == "Citas" and any(c in x["observacion"] for c in REFERENCIA)):
@@ -123,6 +138,11 @@ def redactar(items, filas_orto, extras=(), tipo="proyecto"):
     if aviso:
         obs.append("Titular la sección de referencias como indica el esquema; no se pudo verificar "
                    "la correspondencia entre citas y referencias")
+
+    # Las de similitud ya vienen redactadas con el porcentaje y el máximo: se copian
+    # tal cual, que es lo que el tesista necesita leer.
+    for x in [i for i in items if i["categoria"] == "Similitud"]:
+        obs.append(x["observacion"])
 
     for x in [i for i in items if i["categoria"] == "Revisor"]:
         obs.append(_frase(x.get("nlinea"), x["observacion"][0].lower() + x["observacion"][1:])
@@ -207,6 +227,10 @@ def escribir_resumen(ruta_salida, datos, observaciones):
     p = doc.add_paragraph()
     txt(p, "Asesor: ", negrita=True)
     txt(p, datos.get("asesor") or "(completar)", color=TINTA if datos.get("asesor") else SUAVE)
+    if datos.get("similitud"):
+        p = doc.add_paragraph()
+        txt(p, "Turnitin: ", negrita=True)
+        txt(p, datos["similitud"], tam=10)
 
     p = doc.add_paragraph()
     p.paragraph_format.space_before = Pt(6)

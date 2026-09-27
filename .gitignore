@@ -13,15 +13,31 @@ env/
 build/
 dist/
 
-# Archivos temporales de la base de datos o registro (opcional, comentar si se quiere subir)
-# registro.csv
+# Candados de Word. Word crea '~$documento.docx' mientras un archivo está abierto,
+# y eso pasa dentro de carpetas versionadas como ejemplos/. El programa ya los saltea
+# al revisar (ver expandir() y _sumar()); acá se saltean al versionar.
+~$*
 
 # Logs y reportes generados por la app
 data/reportes/
 *.log
 
-# Cache de pytest
+# Datos del revisor que se editan en cada equipo.
+# registro.csv y mis_reglas.yaml SÍ se versionan a propósito: el repo trae la plantilla
+# de partida y el programa la copia si falta. Si en tu instalación el registro lleva
+# nombres reales de tesistas y asesores, descomentá la línea siguiente.
+# data/registro.csv
+
+# Configuración local de la app (la escribe AppConfig en data/)
+data/config.json
+
+# Cache de herramientas
 .pytest_cache/
+.ruff_cache/
+
+# Las instantáneas de tests/instantaneas/ SÍ se versionan aunque las genere un comando:
+# son la referencia contra la que se compara cada corrida. Sin ellas los tests de
+# caracterización no tienen con qué comparar.
 
 # Corpus de calibracion: son tesis reales de estudiantes, no se versionan
 corpus/
@@ -31,6 +47,7 @@ corpus/
 .idea/
 .DS_Store
 Thumbs.db
+desktop.ini
 
-# Configuración local de la app
-config.json
+# Salida del instalador (Inno Setup)
+instalador/salida/

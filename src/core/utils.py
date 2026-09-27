@@ -12,7 +12,7 @@ from docx.table import Table
 from docx.text.paragraph import Paragraph
 
 __all__ = ["norm", "corto", "limpiar_titulo", "juntar", "ubic", "Obs", "SEVERIDADES",
-           "bloques_en_orden", "Estilos"]
+           "desenvolver_controles", "bloques_en_orden", "celdas_unicas", "sangria_francesa", "Estilos"]
 
 
 def norm(txt):
@@ -44,9 +44,9 @@ def limpiar_titulo(txt):
 def juntar(lugares):
     """une ubicaciones sin repetir el nombre de la seccion"""
     salida, previa = [], None
-    for l in lugares:
-        sec, _, resto = l.partition(": ")
-        salida.append(resto if sec == previa and resto else l)
+    for lugar in lugares:
+        sec, _, resto = lugar.partition(": ")
+        salida.append(resto if sec == previa and resto else lugar)
         previa = sec
     return "; ".join(salida)
 
@@ -89,6 +89,41 @@ class Obs:
 
 
 
+def desenvolver_controles(doc):
+    """
+    Reemplaza cada control de contenido (w:sdt) por lo que tiene adentro.
+
+    Mendeley y Zotero guardan cada cita, y la bibliografía entera, dentro de uno de
+    estos controles, y python-docx no los recorre: ni Paragraph.text ni .runs ven su
+    texto, y bloques_en_orden() se salta la bibliografía. Resultado: citas que "no
+    existen", referencias "no citadas" y huecos que parecen errores de puntuación.
+    Al desenvolverlos en memoria (el archivo no se toca) su contenido pasa a ser
+    párrafos y runs normales para todos los módulos. Devuelve cuántos había.
+    """
+    partes = [doc.element.body]
+    for seccion in doc.sections:
+        for hf in (seccion.header, seccion.footer, seccion.first_page_header,
+                   seccion.first_page_footer, seccion.even_page_header, seccion.even_page_footer):
+            if not hf.is_linked_to_previous:
+                partes.append(hf._element)
+    total = 0
+    for raiz in partes:
+        # en preorden un control anidado aparece después del que lo contiene: al
+        # recorrer al revés se desenvuelve primero el de adentro
+        for sdt in reversed(list(raiz.iter(qn("w:sdt")))):
+            padre = sdt.getparent()
+            if padre is None:
+                continue
+            contenido = sdt.find(qn("w:sdtContent"))
+            hijos = list(contenido) if contenido is not None else []
+            posicion = padre.index(sdt)
+            for k, hijo in enumerate(hijos):
+                padre.insert(posicion + k, hijo)
+            padre.remove(sdt)
+            total += 1
+    return total
+
+
 def bloques_en_orden(doc):
     """parrafos y tablas del cuerpo en el orden real del documento"""
     for hijo in doc.element.body.iterchildren():
@@ -96,6 +131,39 @@ def bloques_en_orden(doc):
             yield Paragraph(hijo, doc)
         elif hijo.tag == qn("w:tbl"):
             yield Table(hijo, doc)
+
+
+def celdas_unicas(tabla):
+    """
+    Celdas de una tabla, cada una UNA sola vez.
+
+    row.cells repite la celda combinada una vez por cada columna que abarca, así que
+    contar sobre ella multiplica el texto de todo encabezado combinado, que es lo normal
+    en un cronograma o un presupuesto. Se descartan las repetidas por su elemento XML,
+    que es el mismo para todas las posiciones de la combinación.
+    """
+    vistas = set()
+    for fila in tabla.rows:
+        for celda in fila.cells:
+            if celda._tc not in vistas:
+                vistas.add(celda._tc)
+                yield celda
+
+
+def sangria_francesa(par):
+    """
+    ¿El párrafo tiene sangría francesa (primera línea hacia afuera)?
+
+    Mira el párrafo y, si no la define, su cadena de estilos: Word normalmente la lleva
+    en el estilo, no en cada párrafo. Leyendo solo el párrafo, una lista de referencias
+    correctamente formateada salía entera como si le faltara.
+    """
+    valor = par.paragraph_format.first_line_indent
+    estilo = par.style
+    while valor is None and estilo is not None:
+        valor = estilo.paragraph_format.first_line_indent
+        estilo = estilo.base_style
+    return valor is not None and valor < 0
 
 
 class Estilos:

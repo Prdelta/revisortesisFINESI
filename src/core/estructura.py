@@ -81,7 +81,7 @@ def detectar_secciones(bloques, reglas):
         for forma in [sec["nombre"]] + sec.get("alias", []):
             candidatos.append((norm(forma), sec["nombre"]))
 
-    encontrados, sueltos = [], []
+    encontrados, sueltos, ya_vistas = [], [], set()
     for i, b in enumerate(bloques):
         if not isinstance(b, Paragraph):
             continue
@@ -98,9 +98,11 @@ def detectar_secciones(bloques, reglas):
 
         if puntaje < umbral:
             # el tesista alargó el título ("Referencias bibliográficas"): vale si el
-            # nombre esperado aparece completo dentro del título
+            # nombre esperado aparece completo dentro del título. Pero solo mientras esa
+            # sección no haya aparecido: después, "HIPÓTESIS GENERAL" o "HIPÓTESIS
+            # ESPECÍFICAS" son subtítulos de Hipótesis, no la sección repetida.
             for forma, nombre in candidatos:
-                if len(forma) >= 8 and re.search(rf"\b{re.escape(forma)}\b", limpio):
+                if len(forma) >= 8 and nombre not in ya_vistas and re.search(rf"\b{re.escape(forma)}\b", limpio):
                     mejor, puntaje, segundo = nombre, max(puntaje, umbral), 0
                     break
 
@@ -108,6 +110,7 @@ def detectar_secciones(bloques, reglas):
         ambiguo = umbral == UMBRAL_CON_SENAL and puntaje < UMBRAL and (puntaje - segundo) < MARGEN_MINIMO
         if puntaje >= umbral and not ambiguo:
             encontrados.append((i, mejor))
+            ya_vistas.add(mejor)
         elif senales:
             sueltos.append((i, txt, limpio))
 
@@ -158,6 +161,27 @@ def revisar_estructura(bloques, reglas, obs, deteccion=None):
             obs.add("Estructura", "Error", "Documento", f"Falta la sección '{n}'",
                     f"No se encontró un título que corresponda. Si existe con otro nombre, "
                     f"agregar el alias en reglas/{tipo}.yaml.")
+
+    # Secciones reconocidas cuyo título no es el de la plantilla. Un título alargado
+    # ("Justificación del proyecto de investigación") se deja pasar; uno cortado o
+    # reconocido solo por parecido se avisa: antes "Uso de los resultados y
+    # contribuciones del" se aceptaba sin decir que al título le faltaba una palabra.
+    for i, n in secciones:
+        limpio = limpiar_titulo(bloques[i].text.strip())
+        formas = formas_de[n]
+        if limpio in formas:
+            continue
+        oficial = n
+        cortado = [f for f in formas if f.startswith(limpio) and len(f) > len(limpio)]
+        if cortado:
+            obs.add("Estructura", "Advertencia", oficial,
+                    f"Título de sección incompleto: '{corto(bloques[i].text.strip(), 60)}'",
+                    f"Debe decir '{oficial}'.")
+        elif not any(re.search(rf"\b{re.escape(f)}\b", limpio) for f in formas if len(f) >= 8):
+            obs.add("Estructura", "Advertencia", oficial,
+                    f"Título distinto al de la plantilla: '{corto(bloques[i].text.strip(), 60)}'",
+                    f"Se reconoció como '{oficial}'. Usar el título de la plantilla o, si esta forma "
+                    f"es aceptable, agregarla a los 'alias' de reglas/{tipo}.yaml.")
 
     cnt = Counter(n for _, n in todos)
     for n, c in cnt.items():

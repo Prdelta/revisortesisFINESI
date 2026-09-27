@@ -204,3 +204,24 @@ francis
 wiley
 mdpi
 hindawi
+
+# Términos técnicos frecuentes en estadística, hidrología y aprendizaje automático
+covariable
+covariables
+altoandino
+altoandina
+altoandinos
+altoandinas
+hidroclimático
+hidroclimática
+hidroclimáticos
+hidroclimáticas
+remuestreo
+univariante
+univariado
+multivariante
+hiperparámetro
+hiperparámetros
+ablación
+scipy
+lightgbm

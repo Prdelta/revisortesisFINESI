@@ -8,12 +8,18 @@ from docx.text.paragraph import Paragraph
 from rapidfuzz import fuzz
 from rapidfuzz.distance import Levenshtein
 
-from .utils import corto, norm, ubic
+from .utils import corto, norm, sangria_francesa, ubic
 
 
-APELLIDO = r"[A-ZÁÉÍÓÚÑÜ][A-Za-zÁÉÍÓÚÑÜáéíóúñü'\-]+"
+# Cualquier letra, no solo las del español: con [A-Za-zÁÉÍÓÚÑÜ] el apellido 'Demšar'
+# se cortaba en la 'š' y su cita no se reconocía.
+MAYUSCULA = "[" + "".join(chr(c) for c in range(0x41, 0x250) if chr(c).isupper()) + "]"
+APELLIDO = rf"{MAYUSCULA}(?:[^\W\d_]|['\-])+"
 PARTICULA = r"(?:(?:de|del|la|las|los|van|von|da|di|le|mc)\s+)*"
-AUTOR = rf"{PARTICULA}{APELLIDO}(?:[\s\-]{APELLIDO})?"
+# Inicial opcional tras el apellido: Mendeley escribe 'Sánchez D. y Laqui V. (2009)'
+# para los autores con dos apellidos que registró como apellido + inicial.
+INICIAL = rf"(?:\s{MAYUSCULA}\.)?"
+AUTOR = rf"{PARTICULA}{APELLIDO}(?:[\s\-]{APELLIDO})?{INICIAL}"
 ANIO = r"(?:\d{4}[a-z]?|s\.\s?f\.)"
 
 RE_PAREN = re.compile(r"\(([^()]*?(?:\d{4}[a-z]?|s\.\s?f\.)[^()]*)\)")
@@ -98,6 +104,39 @@ def extraer_citas(texto):
     return citas
 
 
+# Defectos de forma de una referencia que dejan los gestores bibliográficos al exportar
+# (sobre todo Mendeley) y que el revisor observa a mano. (patrón, observación, corrección)
+DEFECTOS_REFERENCIA = [
+    (re.compile(r"\bVol\.\s*\d+\s*,\s*Page\s+\d+|\bPage\s+\d+"),
+     "Referencia con datos de exportación de Mendeley ('Vol. …, Page …')",
+     "En APA 7: Revista, volumen(número), páginas. Ej.: Water, 13(8), 1048."),
+    (re.compile(r"\b(?:19|20)\d{2}\s+\d+:\d+"),
+     "Referencia con datos de exportación del gestor ('2024 627:8004')",
+     "Quitar el texto sobrante: Revista, volumen(número), páginas."),
+    (re.compile(r"(?<![A-Za-zÁÉÍÓÚáéíóú])ág[.:]"),
+     "Páginas mal escritas ('ág.' o 'ág:')",
+     "En APA 7 las páginas de un artículo van solas: 70-80."),
+    (re.compile(r"…|\.\.\.(?!\S*\.(?:org|com|pe|html?))"),
+     "Referencia cortada ('…')",
+     "Completar el título y los datos de la fuente."),
+    (re.compile(r"(?:\b[A-ZÁÉÍÓÚÑ]{3,}\b[\s,:;()\-]+){4,}"),
+     "Título en mayúsculas",
+     "En APA 7 el título va en minúsculas, salvo la primera palabra y los nombres propios."),
+]
+# Artículo con volumen(número) y sin páginas ni número de artículo: "Revista, 16(1). https://…"
+SIN_PAGINAS = re.compile(r",\s*\d+\s*\(\s*[\w\-–]+\s*\)\s*\.")
+
+
+def defectos_de_referencia(texto):
+    """[(observación, corrección)] de los defectos de forma de una referencia"""
+    sin_url = re.sub(r"https?://\S+", " ", texto)
+    hallados = [(o, c) for patron, o, c in DEFECTOS_REFERENCIA if patron.search(sin_url)]
+    if SIN_PAGINAS.search(sin_url):
+        hallados.append(("Artículo sin páginas ni número de artículo",
+                         "APA 7 pide el rango de páginas (45-58) o el número de artículo."))
+    return hallados
+
+
 def revisar_citas(bloques, rangos, reglas, obs):
     c = reglas.get("citas") or {}
     if not c:
@@ -151,13 +190,14 @@ def revisar_citas(bloques, rangos, reglas, obs):
         if re.search(r"doi\.org|doi:", t, re.I) and not re.search(r"https://doi\.org/", t):
             obs.add("Citas", "Advertencia", ubic(i, rangos, bloques, t), "DOI con formato antiguo",
                     "En APA 7 el DOI va como https://doi.org/xxxxx")
+        for observacion, correccion in defectos_de_referencia(t):
+            obs.add("Citas", "Advertencia", ubic(i, rangos, bloques, t), observacion, correccion)
 
     if not refs:
         obs.add("Citas", "Error", sec_ref, "La sección de referencias no tiene entradas reconocibles")
         return
 
-    sin_francesa = [r for r in refs if not (r["par"].paragraph_format.first_line_indent is not None
-                                            and r["par"].paragraph_format.first_line_indent < 0)]
+    sin_francesa = [r for r in refs if not sangria_francesa(r["par"])]
     if len(sin_francesa) > len(refs) / 2:
         obs.add("Citas", "Error", sec_ref, f"{len(sin_francesa)} de {len(refs)} referencias sin sangría francesa",
                 "APA 7 usa sangría francesa de 1.27 cm")

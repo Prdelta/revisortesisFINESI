@@ -24,7 +24,8 @@ def escribir_reporte(ruta_salida, nombre_doc, obs, filas_orto, motor):
         c.font = Font(bold=True, color="FFFFFF")
         c.fill = PatternFill("solid", fgColor="1F4E78")
     orden_sev = {"Error": 0, "Advertencia": 1, "Revisar": 2}
-    orden_cat = {"Estructura": 0, "Formato": 1, "Extensión": 2, "Citas": 3, "Ortografía": 4}
+    orden_cat = {"Estructura": 0, "Formato": 1, "Extensión": 2, "Citas": 3, "Similitud": 4,
+                 "Ortografía": 5}
     items = sorted(obs.items, key=lambda x: (orden_cat.get(x["categoria"], 9), orden_sev.get(x["severidad"], 9)))
     for k, it in enumerate(items, 1):
         ws.append([k, it["categoria"], it["severidad"], it.get("linea", ""), it["ubicacion"], it["observacion"], it["detalle"]])

@@ -19,7 +19,7 @@ from docx.text.paragraph import Paragraph
 from rapidfuzz import fuzz
 
 from reportes.reporte_excel import escribir_reporte
-from reportes.reporte_resumen import escribir_resumen, redactar
+from reportes.reporte_resumen import cargar_frases, escribir_resumen, redactar
 from reportes.reporte_word import escribir_word
 from utilidades import localizador, reglas_revisor
 
@@ -41,9 +41,9 @@ def ubicar_lineas(obs, filas_orto, mapa, bloques, rangos):
     """agrega a cada observacion la pagina y linea donde esta el texto"""
     for it in obs.items:
         if not it.get("propia"):        # las reglas del revisor ya traen su línea
-            it["linea"], it["nlinea"] = "", None
+            it["linea"], it["nlinea"], it["nlineas"] = "", None, []
     for f in filas_orto:
-        f["linea"], f["nlinea"] = "", None
+        f["linea"], f["nlinea"], f["nlineas"] = "", None, []
     if not mapa:
         return
     def titulo_de(nombre):
@@ -61,16 +61,24 @@ def ubicar_lineas(obs, filas_orto, mapa, bloques, rangos):
             continue
         seccion = (it["ubicacion"] or "").split(":")[0].replace(" (tabla)", "").strip()
         ancla = titulo_de(seccion)
-        frag = localizador.fragmento(it["ubicacion"])
-        if not frag and seccion in rangos:
-            frag, ancla = titulo_de(seccion), None
-        if frag:
-            it["linea"] = mapa.buscar(frag, ancla)
-            it["nlinea"] = mapa.numero(frag, ancla)
+        frags = it.get("fragmentos") or localizador.fragmentos(it["ubicacion"])
+        if not frags and seccion in rangos:
+            frags, ancla = [titulo_de(seccion)], None
+        # una línea por cada ejemplo que trae la observación, no solo la del primero
+        nums = []
+        for frag in frags:
+            n = mapa.numero(frag, ancla) if frag else None
+            if n is not None and n not in nums:
+                nums.append(n)
+        if nums:
+            it["nlineas"] = sorted(nums)
+            it["nlinea"] = it["nlineas"][0]
+            it["linea"] = mapa.buscar(frags[0], ancla) if len(nums) == 1 else                 "líneas " + ", ".join(str(n) for n in it["nlineas"])
     for f in filas_orto:
         ancla = titulo_de(f.get("seccion", ""))
         f["linea"] = mapa.buscar(f.get("frag", ""), ancla) or mapa.buscar(f.get("palabra", ""), ancla)
         f["nlinea"] = mapa.numero(f.get("frag", ""), ancla) or mapa.numero(f.get("palabra", ""), ancla)
+        f["nlineas"] = [f["nlinea"]] if f["nlinea"] else []
 
 
 
@@ -107,6 +115,25 @@ def leer_registro(ruta_registro):
             reg[clave] = {k: (v or "").strip() for k, v in fila.items() if k}
             reg[os.path.splitext(clave)[0]] = reg[clave]
     return reg
+
+
+def formato_de_hoja(aviso=print):
+    """
+    (plantilla, frases) de la hoja de revisión: primero la copia que edita el revisor
+    en la carpeta de datos, si no la que trae el programa. Un error en el YAML de
+    frases no detiene la revisión: se avisa y se usan las frases originales.
+    """
+    def buscar(nombre):
+        for ruta in (os.path.join(DATOS, "reporte", nombre), ruta_recurso(os.path.join("reporte", nombre))):
+            if os.path.exists(ruta):
+                return ruta
+        return None
+    try:
+        frases = cargar_frases(buscar("frases_reporte.yaml"))
+    except ValueError as ex:
+        aviso(f"{ex}. Se usan las frases originales de la hoja de revisión.")
+        frases = cargar_frases(None)
+    return buscar("hoja_revision.docx"), frases
 
 
 def fecha_local(marca):
@@ -277,8 +304,10 @@ def revisar(ruta: str, reglas: Dict[str, Any], carpeta_salida: str, registro: Di
     if formato == "detallado":
         escribir_word(salida, datos, items, filas_orto, motor, resumen, mapa)
     else:
-        lista = redactar(items, filas_orto, getattr(args, "extras", ()) or (), reglas.get("tipo", "proyecto"))
-        escribir_resumen(salida, datos, lista)
+        plantilla, frases = formato_de_hoja(aviso)
+        lista = redactar(items, filas_orto, getattr(args, "extras", ()) or (), reglas.get("tipo", "proyecto"),
+                         frases)
+        escribir_resumen(salida, datos, lista, plantilla, frases)
         if formato == "ambos":
             detalle = os.path.join(carpeta_salida, f"{stem} (detalle).docx")
             escribir_word(detalle, datos, items, filas_orto, motor, resumen, mapa)
@@ -560,8 +589,9 @@ def revisar_informe(informe, reglas, carpeta_salida, registro, args, aviso=print
     if formato == "detallado":
         escribir_word(salida, datos, items, [], "no revisada", {"Similitud": len(items)})
     else:
-        lista = redactar(items, [], getattr(args, "extras", ()) or (), reglas.get("tipo", "proyecto"))
-        escribir_resumen(salida, datos, lista)
+        plantilla, frases = formato_de_hoja(aviso)
+        lista = redactar(items, [], getattr(args, "extras", ()) or (), reglas.get("tipo", "proyecto"), frases)
+        escribir_resumen(salida, datos, lista, plantilla, frases)
         if formato == "ambos":
             escribir_word(os.path.join(carpeta_salida, f"{stem} (detalle).docx"),
                           datos, items, [], "no revisada", {"Similitud": len(items)})

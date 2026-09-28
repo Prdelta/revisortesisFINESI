@@ -13,6 +13,7 @@ from . import config
 from .config import ruta_recurso
 from .citas import RE_NARR, RE_PAREN
 from .utils import corto, juntar, ubic
+from utilidades.localizador import fragmentos as fragmentos_de
 
 
 def cargar_permitidas(ruta):
@@ -84,6 +85,8 @@ def revisar_tipografia(bloques, rangos, obs):
                 conteo[nombre].append(ubic(i, rangos, bloques, "..." + t[max(0, m.start()-3):m.end()+27]))
     for nombre, lugares in conteo.items():
         obs.add("Ortografía", "Advertencia", juntar(lugares[:4]), f"{nombre} ({len(lugares)} caso(s))")
+        # la ubicación muestra cuatro ejemplos; la hoja de revisión necesita la línea de todos
+        obs.items[-1]["fragmentos"] = [f for l in lugares for f in fragmentos_de(l)]
 
 
 def spans_citas(t):

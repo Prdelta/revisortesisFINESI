@@ -26,6 +26,7 @@ from core.config import DATOS, tipos_disponibles, ruta_recurso
 from core.app_config import AppConfig
 from utilidades import reglas_revisor
 from core.orquestador import preparar_datos, Opciones  # noqa: E402
+from reportes.reporte_resumen import crear_plantilla_hoja  # noqa: E402
 
 try:
     # arrastrar y soltar archivos; sin esta librería la app funciona igual, con los botones
@@ -383,6 +384,20 @@ class App(tb.Window):
         tb.Button(fila, text="Palabras permitidas", bootstyle="secondary-outline",
                   command=self.editar_permitidas).pack(side="left", padx=8)
 
+        self._titulo(p, "Diseño de la hoja de revisión")
+        formato = tb.Label(p, text="El diseño de la hoja de revisión (letra, logo, encabezado) se edita en "
+                                   "Word; el texto de cada observación, en el archivo de frases.",
+                           bootstyle="secondary", font=(FUENTE, 9), justify="left")
+        formato.pack(anchor="w")
+        fila = tb.Frame(p)
+        fila.pack(fill="x", pady=(8, 0))
+        tb.Button(fila, text="Diseño (Word)", bootstyle="secondary-outline",
+                  command=self.editar_hoja).pack(side="left")
+        tb.Button(fila, text="Frases", bootstyle="secondary-outline",
+                  command=self.editar_frases).pack(side="left", padx=8)
+        tb.Button(fila, text="Restablecer", bootstyle="link",
+                  command=self.restablecer_formato).pack(side="left")
+
         self._titulo(p, "Carpeta de reportes")
         fila = tb.Frame(p)
         fila.pack(fill="x")
@@ -396,7 +411,7 @@ class App(tb.Window):
                  bootstyle="secondary", font=(FUENTE, 9)).pack(anchor="w")
         tb.Button(p, text="Abrir carpeta de datos", bootstyle="link",
                   command=lambda: self.abrir_carpeta(DATOS)).pack(anchor="w", pady=(2, 0))
-        self._ajustar_al_ancho(p, [explicacion])
+        self._ajustar_al_ancho(p, [explicacion, formato])
         return p
 
     def _barra_inferior(self):
@@ -590,6 +605,49 @@ class App(tb.Window):
         self._abrir_archivo(destino)
         self.avisar("Agrega una palabra por línea: términos técnicos, apellidos y siglas que el "
                     "corrector marca por error.")
+
+    # ---- formato editable de la hoja de revisión (carpeta de datos / reporte)
+    FORMATO_REPORTE = ("hoja_revision.docx", "frases_reporte.yaml")
+
+    def _archivo_de_reporte(self, nombre, reponer=False):
+        """la copia editable del revisor; se crea desde la del programa si falta"""
+        destino = os.path.join(DATOS, "reporte", nombre)
+        original = ruta_recurso(os.path.join("reporte", nombre))
+        if os.path.abspath(destino) == os.path.abspath(original):
+            if reponer and nombre.endswith(".docx"):
+                crear_plantilla_hoja(destino)     # al correr con python, la original es esta
+            return destino
+        if reponer or not os.path.exists(destino):
+            os.makedirs(os.path.dirname(destino), exist_ok=True)
+            if os.path.exists(original):
+                shutil.copy2(original, destino)
+            elif nombre.endswith(".docx"):
+                crear_plantilla_hoja(destino)
+        return destino
+
+    def editar_hoja(self):
+        self._abrir_archivo(self._archivo_de_reporte("hoja_revision.docx"))
+        self.avisar("Se abrió la plantilla de la hoja. Cambia letra, logo o textos fijos y guarda; "
+                    "no borres los marcadores {{…}} que necesites (ej. {{OBSERVACIONES}}).")
+
+    def editar_frases(self):
+        self._abrir_archivo(self._archivo_de_reporte("frases_reporte.yaml"))
+        self.avisar("Se abrió frases_reporte.yaml. Cambia el texto entre comillas y guarda; "
+                    "vale desde la siguiente revisión.")
+
+    def restablecer_formato(self):
+        if not messagebox.askyesno("Revisor de Tesis",
+                                   "¿Volver al formato original de la hoja de revisión?\n\n"
+                                   "Se pierden los cambios hechos en el diseño y en las frases."):
+            return
+        try:
+            for nombre in self.FORMATO_REPORTE:
+                self._archivo_de_reporte(nombre, reponer=True)
+        except OSError as ex:
+            messagebox.showerror("Revisor de Tesis", f"No se pudo restablecer el formato "
+                                                     f"(¿está abierto en Word?):\n\n{ex}")
+            return
+        self.avisar("Se restableció el formato original de la hoja de revisión.")
 
     def elegir_salida(self):
         carpeta = filedialog.askdirectory(title="Carpeta donde guardar los reportes")

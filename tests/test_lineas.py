@@ -18,27 +18,28 @@ def test_un_fragmento_que_cruza_el_salto_de_linea_se_ubica():
     assert mapa.numero("...ca et al., 2023)  y se evalúa sobr") == 2
 
 
-def _item(categoria, severidad, observacion, nlinea, ubicacion="Documento"):
-    return dict(categoria=categoria, severidad=severidad, observacion=observacion,
-                ubicacion=ubicacion, nlinea=nlinea, detalle="")
+def _item(categoria, severidad, observacion, nlineas, ubicacion="Documento"):
+    nlineas = [nlineas] if isinstance(nlineas, int) else (nlineas or [])
+    return dict(categoria=categoria, severidad=severidad, observacion=observacion, ubicacion=ubicacion,
+                nlinea=nlineas[0] if nlineas else None, nlineas=nlineas, detalle="")
 
 
-def test_la_hoja_lleva_la_linea_de_cada_tipo_de_observacion():
+def test_la_hoja_lleva_todas_las_lineas_de_cada_tipo_de_observacion():
     items = [
-        _item("Formato", "Error", "Texto en fuente 'Courier New' (4.2% del documento)", 220),
+        _item("Formato", "Error", "Texto en fuente 'Courier New' (4.2% del documento)", [220, 407]),
         _item("Estructura", "Advertencia", "Título de sección incompleto: 'Uso de los resultados'", 445,
               "Uso de los resultados y contribuciones del proyecto"),
         _item("Citas", "Advertencia", "Referencia cortada ('…')", 363, "Referencias: 'Béjar'"),
         _item("Citas", "Advertencia", "Título en mayúsculas", 387, "Referencias: 'Llanque'"),
-        _item("Ortografía", "Advertencia", "Doble espacio entre palabras (1 caso(s))", 295),
+        _item("Ortografía", "Advertencia", "Doble espacio entre palabras (2 caso(s))", [295, 633]),
     ]
-    filas = [dict(nlinea=11, palabra="hidro")]
+    filas = [dict(nlinea=11, nlineas=[11], palabra="hidro"), dict(nlinea=126, nlineas=[126], palabra=".Lees")]
     hoja = redactar(items, filas)
-    assert "Línea 220 y otros: corregir el formato del documento: tipo de letra" in hoja
+    assert "Líneas 220 y 407: corregir el formato del documento: tipo de letra" in hoja
     assert ("Línea 445: completar el título de la sección: debe decir "
             "«Uso de los resultados y contribuciones del proyecto»") in hoja
-    assert "Línea 363 y otros: referenciar según norma APA 7ª ed" in hoja
-    assert "Línea 11 y otros: corregir ortografía y gramática" in hoja
+    assert "Líneas 363 y 387: referenciar según norma APA 7ª ed" in hoja
+    assert "Líneas 11, 126, 295 y 633: corregir ortografía y gramática" in hoja
 
 
 def test_sin_numero_de_linea_la_observacion_sale_igual():

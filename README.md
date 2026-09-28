@@ -66,10 +66,32 @@ Para una versión nueva, cambia `Version` en `instalador\RevisorTesisFINESI.iss`
 ## 3. Formato de los Reportes
 
 Elige el formato de salida según tu necesidad:
-- **Hoja de revisión (corta):** Reproduce el formato oficial PGI. Da un resumen tipo "Línea 33 y otros: corregir formato APA".
+- **Hoja de revisión (corta):** Reproduce el formato oficial PGI, con las líneas de cada problema: "Líneas 33, 40 y 127: corregir la forma de citar, estilo APA 7ª ed".
 - **Detallado:** Tabla exhaustiva con cada uno de los hallazgos aislados, su ubicación exacta y la corrección sugerida.
 
+Los números de línea son los del margen del documento (numeración de líneas de Word, que la plantilla oficial trae activada). Para calcularlos hace falta **Microsoft Word** o **LibreOffice** instalado; sin ellos la hoja sale igual, pero sin líneas.
+
 **Observaciones Adicionales:** Puedes escribir a mano en la app cosas que el software no detecta ("Falta matriz de consistencia"). Quedan guardadas para tu próxima sesión.
+
+### Editar el formato de la hoja de revisión
+
+En la app, pestaña **Ajustes → Diseño de la hoja de revisión**:
+
+- **Diseño (Word):** abre `reporte/hoja_revision.docx`. Cambia letra, logo, encabezado o textos fijos como en cualquier documento de Word. Los datos van en marcadores que el programa completa:
+
+  | Marcador | Dato |
+  |---|---|
+  | `{{FECHA_REVISION}}` · `{{N_REVISION}}` | fecha y número de la revisión |
+  | `{{TITULO}}` · `{{CODIGO}}` · `{{ETAPA}}` · `{{ARCHIVO}}` · `{{TIPO}}` | datos del expediente |
+  | `{{TESISTA}}` · `{{ASESOR}}` · `{{REVISOR}}` · `{{FECHA_PRESENTACION}}` | personas y fecha de entrega |
+  | `{{SIMILITUD}}` | resultado del informe de Turnitin |
+  | `{{OBSERVACIONES}}` | la lista de observaciones; cada una toma el formato de ese párrafo |
+
+  Con `?` al final (`{{TESISTA?}}`) la línea entera desaparece cuando el dato está vacío.
+- **Frases:** abre `reporte/frases_reporte.yaml`, con el texto de cada observación ("corregir ortografía y gramática"…) y cómo se escriben las líneas ("Línea {n}", "Líneas {lista}", cuántas mostrar antes de "y otros").
+- **Restablecer:** vuelve al formato original.
+
+Los dos archivos están en la carpeta de datos del programa y los cambios valen desde la siguiente revisión, sin reconstruir el ejecutable.
 
 ---
 

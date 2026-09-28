@@ -1,0 +1,33 @@
+# Frases de la hoja de revisión
+#
+# Cambia el texto entre comillas y guarda: vale desde la siguiente revisión, sin
+# reconstruir el programa. Lo que borres vuelve al texto original.
+# Las palabras entre llaves ({n}, {lista}, {tipo}, {detalle}, {seccion}, {maximo},
+# {valor}) las completa el programa: déjalas donde quieras que aparezca el dato.
+#
+# El diseño de la hoja (letra, logo, encabezado, orden) se cambia en
+# hoja_revision.docx, en esta misma carpeta.
+
+lineas:
+  una: "Línea {n}"                 # una sola línea:   Línea 33: corregir ...
+  varias: "Líneas {lista}"         # varias líneas:    Líneas 33, 40 y 127: corregir ...
+  separador: ", "
+  ultimo: " y "
+  maximo: 10                       # con más líneas, se muestran estas y se agrega:
+  y_otros: " y otros"
+
+observaciones:
+  esquema: "Revisar y cumplir el esquema de {tipo} de tesis PGI"
+  formato: "corregir el formato del documento: {detalle}"
+  titulo_incompleto: "completar el título de la sección: debe decir «{seccion}»"
+  titulo_distinto: "titular la sección como indica el esquema: «{seccion}»"
+  texto_guia: "eliminar el texto guía de la plantilla que quedó sin borrar"
+  revision_ortografica: "Revisión gramatical y ortográfica de todo el proyecto"
+  citas: "corregir la forma de citar, estilo APA 7ª ed"
+  ortografia: "corregir ortografía y gramática"
+  referencias: "referenciar según norma APA 7ª ed"
+  sin_referencias: "Titular la sección de referencias como indica el esquema; no se pudo verificar la correspondencia entre citas y referencias"
+  extension_paginas: "Reducir la extensión a {maximo} páginas como máximo (tiene {valor})"
+  extension_titulo: "Reducir el título a {maximo} palabras como máximo (tiene {valor})"
+  extension_palabras_clave: "Dejar {maximo} palabras clave como máximo (tiene {valor})"
+  sin_observaciones: "Sin observaciones de formato. Pasa a la siguiente etapa."

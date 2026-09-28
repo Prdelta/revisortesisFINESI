@@ -278,7 +278,14 @@ RE_ENTRECOMILLADO = re.compile(r"'([^']{6,})'")
 
 def fragmento(ubicacion):
     """saca el texto citado dentro de una ubicacion tipo  Seccion: 'texto...'  """
-    m = RE_ENTRECOMILLADO.search(ubicacion or "")
-    if not m:
-        return ""
-    return m.group(1).replace("...", " ").replace("…", " ").strip()
+    todos = fragmentos(ubicacion)
+    return todos[0] if todos else ""
+
+
+def fragmentos(ubicacion):
+    """
+    Todos los textos citados de una ubicación. Una observación que junta varios casos
+    ("Doble espacio (3 casos)") trae un ejemplo por caso, y cada uno tiene su línea.
+    """
+    return [m.group(1).replace("...", " ").replace("…", " ").strip()
+            for m in RE_ENTRECOMILLADO.finditer(ubicacion or "")]

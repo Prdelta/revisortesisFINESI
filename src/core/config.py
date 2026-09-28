@@ -87,7 +87,7 @@ def preparar_datos():
     empaquetadas para que el programa funcione en una PC nueva y el revisor pueda
     editarlas. Nunca pisa un archivo existente.
     """
-    for sub in ("reglas", "plantillas"):
+    for sub in ("reglas", "plantillas", "reporte"):   # "reporte": el formato editable de la hoja
         destino = os.path.join(DATOS, sub)
         os.makedirs(destino, exist_ok=True)
         origen = os.path.join(RECURSOS, sub)

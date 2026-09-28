@@ -10,6 +10,7 @@ from PyInstaller.utils.hooks import collect_all, collect_data_files
 datos = [
     ("data/reglas", "reglas"),
     ("data/plantillas", "plantillas"),
+    ("data/reporte", "reporte"),          # formato editable de la hoja de revisión
     ("data/dic", "dic"),
     ("data/permitidas.txt", "."),
     ("data/mis_reglas.yaml", "."),
